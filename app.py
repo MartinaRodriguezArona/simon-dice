@@ -142,5 +142,5 @@ def abrir_navegador():
 
 
 if __name__ == "__main__":
-    threading.Thread(target=abrir_navegador).start()
-    aplicacion.run(port=5000, debug=False)
+    app.run()
+
