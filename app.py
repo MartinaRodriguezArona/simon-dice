@@ -7,7 +7,7 @@ import numpy as np
 from flask import Flask, jsonify, render_template, request
 import mediapipe as mp
 
-aplicacion = Flask(__name__)
+app = Flask(__name__)
 
 mp_pose = mp.solutions.pose
 detector_postura = mp_pose.Pose(
