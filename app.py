@@ -20,12 +20,12 @@ ultima_postura_detectada = "NEUTRAL"
 game_records = {"intermediate_level_2": 0, "hard_level_3": 0}
 
 
-@aplicacion.route("/")
+@app.route("/")
 def inicio():
     return render_template("index.html")
 
 
-@aplicacion.route("/api/process_frame", methods=["POST"])
+@app.route("/api/process_frame", methods=["POST"])
 def procesar_fotograma():
     global ultima_postura_detectada
     if "frame" not in request.files:
@@ -121,7 +121,7 @@ def procesar_fotograma():
     return jsonify({"detected": ultima_postura_detectada})
 
 
-@aplicacion.route("/api/save_record", methods=["POST"])
+@app.route("/api/save_record", methods=["POST"])
 def save_record():
     data = request.get_json()
     mode = data.get("mode")
@@ -131,7 +131,7 @@ def save_record():
     return jsonify({"saved": True, "new_record": game_records[mode]})
 
 
-@aplicacion.route("/api/records", methods=["GET"])
+@app.route("/api/records", methods=["GET"])
 def get_records():
     return jsonify(game_records)
 
