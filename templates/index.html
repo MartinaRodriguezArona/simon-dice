@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simón / Simón Dice</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="main-wrapper">
+        <!-- Botón Menú Hamburguesa (Las tres barritas con Tooltip) -->
+        <button id="btn-hamburger" class="hamburger-btn hidden" onclick="toggleGlobalMenu()">
+            &#9776;
+            <div id="hamburger-dropdown" class="hamburger-dropdown hidden">
+                <div class="menu-action-item" onclick="toggleMuteSound(event)">
+                    🔊 <span class="tooltip-text" id="tooltip-mute">Mutear Sonido</span>
+                </div>
+                <div class="menu-action-item" onclick="restartCurrentGame(event)">
+                    🔄 <span class="tooltip-text">Reiniciar Partida</span>
+                </div>
+                <div class="menu-action-item" onclick="pauseCurrentGame(event)">
+                    ⏸️ <span class="tooltip-text" id="tooltip-pause">Pausar Partida</span>
+                </div>
+                <div class="menu-action-item" onclick="abandonCurrentGame(event)">
+                    🚪 <span class="tooltip-text">Abandonar Partida</span>
+                </div>
+            </div>
+        </button>
+
+        <!-- 1. Pantalla de Inicio: Ingreso de Nombre -->
+        <div id="screen-login" class="screen">
+            <div class="arcade-brand">
+                <span class="brand-lights"><i></i><i></i><i></i><i></i></span>
+                <span class="brand-name">SIMÓN <b>DICE</b></span>
+                <span class="brand-edition">ARCADE · MUSICAL</span>
+            </div>
+            <h1>¡PONÉ A PRUEBA TUS REFLEJOS!</h1>
+            <p class="menu-subtitle">Bienvenido al juego interactivo de memoria y visión corporal</p>
+            <input type="text" id="username-input" class="input-neon" placeholder="Escribe tu usuario..." autocomplete="off" />
+            <button class="btn-main" onclick="saveUserAndMenu()">INGRESAR</button>
+        </div>
+
+        <!-- 2. Menú Principal -->
+        <div id="main-menu" class="screen hidden">
+            <div class="arcade-brand">
+                <span class="brand-lights"><i></i><i></i><i></i><i></i></span>
+                <span class="brand-name">SIMÓN <b>DICE</b></span>
+                <span class="brand-edition">ARCADE · MUSICAL</span>
+            </div>
+            <h1 id="welcome-title">¡HOLA, JUGADOR!</h1>
+            <p class="menu-subtitle">Elegí el modo de juego al que querés desafiarte.</p>
+            <div class="mode-cards-container">
+                <div class="mode-card" onclick="selectMode('simon')">
+                    <div class="mode-card-icon">🕹️</div>
+                    <h2>SIMÓN</h2>
+                    <p class="description">Secuencias de luces y sonidos en 3 niveles.</p>
+                </div>
+                <div class="mode-card" onclick="selectMode('simon_dice')">
+                    <div class="mode-card-icon">📷</div>
+                    <h2>SIMÓN DICE</h2>
+                    <p class="description">Reconocimiento corporal en vivo con tu webcam.</p>
+                </div>
+            </div>
+            <div class="menu-extras">
+                <button class="btn-sub secondary" onclick="document.getElementById('settings-overlay').classList.remove('hidden'); updateSettingsLabels()">⚙️ Configuración</button>
+            </div>
+        </div>
+
+        <!-- 3. Submenú Modo Simón: Niveles Simplificados -->
+        <div id="simon-submenu" class="screen hidden">
+            <p class="menu-eyebrow">ELEGÍ TU DESAFÍO</p>
+            <h2>Modo Simón</h2>
+            <div class="level-grid">
+                <button class="level-card level-easy" onclick="promptLevelRules('easy')">
+                    <span class="level-art"><img src="{{ url_for('static', filename='images/modern/level_complete.jpg.png') }}" alt="Nivel 1"></span>
+                    <span class="level-tag">NIVEL 01 · INICIAL</span><strong>Fácil</strong>
+                    <span class="level-cta">JUGAR NIVEL <b>↗</b></span>
+                </button>
+                <button class="level-card level-mid" onclick="promptLevelRules('intermediate')">
+                    <span class="level-art"><img src="{{ url_for('static', filename='images/modern/new_record.jpg.png') }}" alt="Nivel 2"></span>
+                    <span class="level-tag">NIVEL 02 · DESAFÍO</span><strong>Intermedio</strong>
+                    <span class="level-cta">JUGAR NIVEL <b>↗</b></span>
+                </button>
+                <button class="level-card level-hard" onclick="promptLevelRules('hard')">
+                    <span class="level-art"><img src="{{ url_for('static', filename='images/modern/phase_completed.jpg.png') }}" alt="Nivel 3"></span>
+                    <span class="level-tag">NIVEL 03 · EXPERTO</span><strong>Difícil</strong>
+                    <span class="level-cta">JUGAR NIVEL <b>↗</b></span>
+                </button>
+            </div>
+            <button class="btn-back" onclick="showScreen('main-menu')">Volver al Menú Principal</button>
+        </div>
+
+        <!-- 4. Pantalla de Juego: Modo Simón -->
+        <div id="simon-game-screen" class="screen hidden">
+            <div class="hud">
+                <span id="simon-info">NIVEL 1</span>
+                <span id="simon-stats">Ronda: 0</span>
+            </div>
+            <div id="simon-extra"></div>
+
+            <section class="progress-panel" aria-live="polite">
+                <div class="progress-heading">
+                    <span id="simon-timer-display" class="hidden timer-prefix">⏱️ 00:00</span>
+                    <span id="simon-progress-label">PROGRESO</span>
+                    <strong id="simon-progress-value">100%</strong>
+                </div>
+                <div class="progress-track"><div id="simon-progress-fill" class="progress-fill"></div></div>
+                <div id="simon-lives-display" class="lives-display hidden" aria-live="polite"></div>
+                <p id="simon-progress-message" class="progress-message">¡Prepará la memoria!</p>
+            </section>
+
+            <div class="simon-board">
+                <div class="color-pad pad-green" id="pad-0" onclick="handlePadClick(0)"></div>
+                <div class="color-pad pad-red" id="pad-1" onclick="handlePadClick(1)"></div>
+                <div class="color-pad pad-yellow" id="pad-2" onclick="handlePadClick(2)"></div>
+                <div class="color-pad pad-blue" id="pad-3" onclick="handlePadClick(3)"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Reglas antes de iniciar nivel -->
+    <div id="modal-level-rules" class="panel-overlay hidden" role="dialog" aria-modal="true">
+        <section class="simple-panel">
+            <p class="panel-kicker">CÓMO SE JUEGA</p>
+            <h2 id="modal-rules-title">REGLAS DEL NIVEL</h2>
+            <p id="modal-rules-desc" class="rules-text-body">Descripción de reglas...</p>
+            <button class="btn-main" onclick="startConfirmedSimonLevel()">EMPEZAR JUEGO</button>
+            <button class="btn-back" onclick="closePanel('modal-level-rules')">Cancelar</button>
+        </section>
+    </div>
+
+    <!-- Panel de Configuración -->
+    <div id="settings-overlay" class="panel-overlay hidden" role="dialog" aria-modal="true">
+        <section class="simple-panel">
+            <p class="panel-kicker">PERSONALIZÁ TU PARTIDA</p><h2>Configuración</h2>
+            <button id="music-setting" class="btn-sub" onclick="toggleSetting('music')">Música: Activada</button>
+            <button id="effects-setting" class="btn-sub" onclick="toggleSetting('effects')">Efectos: Activados</button>
+            <button id="voice-setting" class="btn-sub" onclick="toggleSetting('voice')">Voz: Activada</button>
+            <button class="btn-back" onclick="closePanel('settings-overlay')">Volver</button>
+        </section>
+    </div>
+
+    <!-- Pantalla de Resultados y Fases -->
+    <div id="result-overlay" class="result-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <div class="result-card">
+            <img id="result-image" class="result-image" src="" alt="Ilustración del resultado">
+            <div class="result-copy">
+                <p id="result-kicker" class="result-kicker">SIMÓN DICE</p>
+                <h2 id="result-title">Resultado</h2>
+                <p id="result-description"></p>
+                <div id="record-comparison" class="record-comparison hidden" aria-live="polite"></div>
+                <button id="result-continue" class="btn-main" onclick="continueResult()">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Pantalla Simón Dice: Cámara en Pantalla Completa -->
+    <div id="simon-dice-screen" class="screen hidden">
+        <video id="webcam-feed" class="webcam-fullscreen" autoplay playsinline muted></video>
+        <div id="dice-target-emoji" class="emoji-banner">⏳</div>
+        <div class="dice-overlay-status">
+            <span id="dice-feedback-text">Analizando postura corporal...</span>
+        </div>
+    </div>
+
+    <!-- Audio de Fondo -->
+    <audio id="bg-music" src="{{ url_for('static', filename='background_music.wav') }}" loop preload="auto"></audio>
+    <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>
