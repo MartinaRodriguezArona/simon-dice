@@ -844,28 +844,19 @@ async function startSimonDiceGame() {
                         // Subimos el timeout a 8 segundos por seguridad
                         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-                        const response = await fetch('/api/process_frame', {
-                            method: 'POST',
-                            body: formData,
-                            signal: controller.signal
-                        });
-                        
-                        clearTimeout(timeoutId);
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (thisSession === cameraSessionId) {
-                                currentDetectedPoseKey = data.detected || 'NEUTRAL';
-                            }
-                        }
+             try {
+                    const response = await fetch('/api/process_frame', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        currentDetectedPoseKey = data.detected || "NEUTRAL";
                     }
                 } catch (err) {
-                    // Ignora timeouts o cancelaciones temporales sin romper el juego
+                    console.error("Error enviando fotograma a Python:", err);
                 } finally {
-                    isRequestInFlight = false;
-                    if (controller && frameRequestController === controller) {
-                        frameRequestController = null;
-                    }
+                    isProcessingFrame = false;
                 }
             }
 
