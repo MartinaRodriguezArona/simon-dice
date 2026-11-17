@@ -821,15 +821,15 @@ async function startSimonDiceGame() {
                 
                 let controller = null;
                 try {
-                    const targetWidth = 640;
-                    const targetHeight = 480;
+                    const targetWidth = 320;
+                    const targetHeight = 240;
                     
                     if (hiddenCanvas.width !== targetWidth) hiddenCanvas.width = targetWidth;
                     if (hiddenCanvas.height !== targetHeight) hiddenCanvas.height = targetHeight;
 
                     if (hiddenCanvas.width !== videoElement.videoWidth || hiddenCanvas.height !== videoElement.videoHeight) {
-                        hiddenCanvas.width = videoElement.videoWidth || 640;
-                        hiddenCanvas.height = videoElement.videoHeight || 480;
+                        hiddenCanvas.width = videoElement.videoWidth || 320;
+                        hiddenCanvas.height = videoElement.videoHeight || 240;
                     }
                     ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
                     
