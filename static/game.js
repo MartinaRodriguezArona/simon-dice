@@ -865,7 +865,7 @@ async function startSimonDiceGame() {
             }
 
             if (thisSession === cameraSessionId) {
-                frameLoopTimeout = setTimeout(sendNextFrame, 150);
+                frameLoopTimeout = setTimeout(sendNextFrame, 300);
             }
         };
 
