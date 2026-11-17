@@ -12,8 +12,8 @@ app = Flask(__name__)
 mp_pose = mp.solutions.pose
 detector_postura = mp_pose.Pose(
     static_image_mode=False,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5,
+    min_detection_confidence=0.3,
+    min_tracking_confidence=0.3,
 )
 
 ultima_postura_detectada = "NEUTRAL"
