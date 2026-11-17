@@ -842,7 +842,7 @@ async function startSimonDiceGame() {
                         controller = new AbortController();
                         frameRequestController = controller;
                         
-                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                         const response = await fetch('/api/process_frame', {
                             method: 'POST',
