@@ -43,7 +43,7 @@ def procesar_fotograma():
     resultados = detector_postura.process(rgb)
 
     if not resultados.pose_landmarks:
-        return jsonify({"detected": "NEUTRAL", "status": "cuerpo_no_detectado"})
+        return jsonify({"detected": "NEUTRAL", "status": "cuerpo_no_detectado", "debug": "No se encontraron landmarks"})
 
     # Si detecta el cuerpo, evaluamos las posturas
     puntos = resultados.pose_landmarks.landmark
