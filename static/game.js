@@ -813,12 +813,15 @@ async function startSimonDiceGame() {
         const ctx = hiddenCanvas.getContext('2d');
         if (!ctx) throw new Error('No se pudo preparar el procesamiento de imágenes.');
 
+       let isRequestInFlight = false;
+
         const sendNextFrame = async () => {
             if (thisSession !== cameraSessionId || !webcamStream) return;
 
-            if (!isPaused && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+            if (!isPaused && !isRequestInFlight && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
                 videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
                 
+                isRequestInFlight = true;
                 let controller = null;
                 try {
                     const targetWidth = 320;
@@ -827,13 +830,9 @@ async function startSimonDiceGame() {
                     if (hiddenCanvas.width !== targetWidth) hiddenCanvas.width = targetWidth;
                     if (hiddenCanvas.height !== targetHeight) hiddenCanvas.height = targetHeight;
 
-                    if (hiddenCanvas.width !== videoElement.videoWidth || hiddenCanvas.height !== videoElement.videoHeight) {
-                        hiddenCanvas.width = videoElement.videoWidth || 320;
-                        hiddenCanvas.height = videoElement.videoHeight || 240;
-                    }
                     ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
                     
-                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.6));
+                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.5));
 
                     if (blob && thisSession === cameraSessionId) {
                         const formData = new FormData();
@@ -842,7 +841,8 @@ async function startSimonDiceGame() {
                         controller = new AbortController();
                         frameRequestController = controller;
                         
-                        const timeoutId = setTimeout(() => controller.abort(), 10000);
+                        // Subimos el timeout a 8 segundos por seguridad
+                        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
                         const response = await fetch('/api/process_frame', {
                             method: 'POST',
@@ -860,8 +860,9 @@ async function startSimonDiceGame() {
                         }
                     }
                 } catch (err) {
-                    // Ignorar errores de red temporales
+                    // Ignora timeouts o cancelaciones temporales sin romper el juego
                 } finally {
+                    isRequestInFlight = false;
                     if (controller && frameRequestController === controller) {
                         frameRequestController = null;
                     }
@@ -869,7 +870,8 @@ async function startSimonDiceGame() {
             }
 
             if (thisSession === cameraSessionId) {
-                frameLoopTimeout = setTimeout(sendNextFrame, 1000);
+                // Espaciamos un poco más los intentos (800ms) para darle respiro a Python
+                frameLoopTimeout = setTimeout(sendNextFrame, 800);
             }
         };
 
