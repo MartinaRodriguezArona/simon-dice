@@ -827,7 +827,11 @@ async function startSimonDiceGame() {
                     if (hiddenCanvas.width !== targetWidth) hiddenCanvas.width = targetWidth;
                     if (hiddenCanvas.height !== targetHeight) hiddenCanvas.height = targetHeight;
 
-                    ctx.drawImage(videoElement, 0, 0, targetWidth, targetHeight);
+                    if (hiddenCanvas.width !== videoElement.videoWidth || hiddenCanvas.height !== videoElement.videoHeight) {
+                        hiddenCanvas.width = videoElement.videoWidth || 640;
+                        hiddenCanvas.height = videoElement.videoHeight || 480;
+                    }
+                    ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
                     
                     const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.6));
 
