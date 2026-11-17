@@ -47,6 +47,9 @@ let diceRoundTimeout = null;
 let diceRoundCount = 0;
 let isSimonCommand = true;
 let currentUtterance = null;
+let cameraSessionId = 0;
+let frameLoopTimeout = null;
+let frameRequestController = null;
 
 const POSES_DICT = [
     { emoji: '🙌', name: 'Ambas Manos Arriba', key: '🙌' },
@@ -766,14 +769,15 @@ function finishIntermediateLevel() {
    MODO SIMÓN DICE (CÁMARA MIO)
    ========================================================================== */
 async function startSimonDiceGame() {
-    // 1. Cierra sesiones anteriores de la cámara
+    // 1. Cierra sesiones anteriores de la cámara de forma limpia
     stopWebcamStream();
     const thisSession = ++cameraSessionId;
 
     clearAllSimonTimers();
     selectedMode = 'simon_dice';
     isPaused = false;
-    removePauseOverlays();
+    document.getElementById('simon-pause-overlay')?.remove();
+    document.getElementById('dice-pause-overlay')?.remove();
     showScreen('simon-dice-screen');
 
     scoreCorrect = 0;
@@ -790,7 +794,7 @@ async function startSimonDiceGame() {
 
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
-            video: true
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }
         });
 
         if (thisSession !== cameraSessionId) {
@@ -799,79 +803,50 @@ async function startSimonDiceGame() {
         }
 
         webcamStream = stream;
-
-        // Intento opcional de zoom digital si el dispositivo lo soporta
-        const zoomTrack = stream.getVideoTracks()[0];
-        if (zoomTrack && typeof zoomTrack.getCapabilities === 'function') {
-            const cameraCapabilities = zoomTrack.getCapabilities();
-            if (cameraCapabilities.zoom && Number.isFinite(cameraCapabilities.zoom.min)) {
-                try {
-                    await zoomTrack.applyConstraints({
-                        advanced: [{ zoom: cameraCapabilities.zoom.min }]
-                    });
-                } catch (zoomError) {}
-            }
-        }
-
-        videoElement.pause();
         videoElement.srcObject = stream;
         videoElement.muted = true;
         videoElement.autoplay = true;
         videoElement.playsInline = true;
 
-        if (videoElement.readyState < HTMLMediaElement.HAVE_METADATA) {
-            await new Promise((resolve, reject) => {
-                const onLoaded = () => { cleanup(); resolve(); };
-                const onError = () => { cleanup(); reject(new Error('No se pudo iniciar la vista de la cámara.')); };
-                const cleanup = () => {
-                    videoElement.removeEventListener('loadedmetadata', onLoaded);
-                    videoElement.removeEventListener('error', onError);
-                };
-                videoElement.addEventListener('loadedmetadata', onLoaded, { once: true });
-                videoElement.addEventListener('error', onError, { once: true });
-            });
-        }
-
-        if (thisSession !== cameraSessionId) return;
-        await videoElement.play();
-
-        const videoTrack = stream.getVideoTracks()[0];
-        if (videoTrack) {
-            videoTrack.addEventListener('ended', () => {
-                if (thisSession === cameraSessionId) {
-                    stopWebcamStream();
-                }
-            }, { once: true });
-        }
+        await videoElement.play().catch(() => {});
 
         const hiddenCanvas = document.createElement('canvas');
         const ctx = hiddenCanvas.getContext('2d');
         if (!ctx) throw new Error('No se pudo preparar el procesamiento de imágenes.');
 
-        // 2. BUCLE INTELIGENTE DE ENVÍO DE FOTOGRAMAS (CAMBIO PRINCIPAL)
+        // 2. Bucle inteligente y seguro de envío de fotogramas sin bloquear el hilo principal
         const sendNextFrame = async () => {
             if (thisSession !== cameraSessionId || !webcamStream) return;
 
             if (!isPaused && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
                 videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
-                isProcessingFrame = true;
+                
                 let controller = null;
                 try {
                     hiddenCanvas.width = videoElement.videoWidth;
                     hiddenCanvas.height = videoElement.videoHeight;
                     ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.6));
+                    
+                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.5));
 
                     if (blob && thisSession === cameraSessionId) {
                         const formData = new FormData();
                         formData.append('frame', blob, 'frame.jpg');
+                        
                         controller = new AbortController();
                         frameRequestController = controller;
+                        
+                        // Timeout de seguridad de 1.5s para evitar que el fetch bloquee la UI si Flask demora
+                        const timeoutId = setTimeout(() => controller.abort(), 1500);
+
                         const response = await fetch('/api/process_frame', {
                             method: 'POST',
                             body: formData,
                             signal: controller.signal
                         });
+                        
+                        clearTimeout(timeoutId);
+
                         if (response.ok) {
                             const data = await response.json();
                             if (thisSession === cameraSessionId) {
@@ -880,15 +855,16 @@ async function startSimonDiceGame() {
                         }
                     }
                 } catch (err) {
-                    if (err.name !== 'AbortError') console.error('Error procesando la cámara:', err);
+                    // Ignoramos errores de cancelación o red temporales para mantener la fluidez
                 } finally {
-                    if (thisSession === cameraSessionId) isProcessingFrame = false;
-                    if (controller && frameRequestController === controller) frameRequestController = null;
+                    if (controller && frameRequestController === controller) {
+                        frameRequestController = null;
+                    }
                 }
             }
 
             if (thisSession === cameraSessionId) {
-                frameLoopTimeout = setTimeout(sendNextFrame, 160);
+                frameLoopTimeout = setTimeout(sendNextFrame, 200); // Intervalo optimizado a 200ms
             }
         };
 
@@ -903,13 +879,10 @@ async function startSimonDiceGame() {
         showScreen('main-menu');
     }
 }
+
 function stopWebcamStream() {
     cameraSessionId++;
 
-    if (frameSendInterval) {
-        clearInterval(frameSendInterval);
-        frameSendInterval = null;
-    }
     if (frameLoopTimeout) {
         clearTimeout(frameLoopTimeout);
         frameLoopTimeout = null;
@@ -923,7 +896,6 @@ function stopWebcamStream() {
         diceCheckInterval = null;
     }
     clearTimeout(diceRoundTimeout);
-    isProcessingFrame = false;
 
     const videoElement = document.getElementById('webcam-feed');
     if (videoElement) {
