@@ -766,9 +766,14 @@ function finishIntermediateLevel() {
    MODO SIMÓN DICE (CÁMARA MIO)
    ========================================================================== */
 async function startSimonDiceGame() {
+    // 1. Cierra sesiones anteriores de la cámara
+    stopWebcamStream();
+    const thisSession = ++cameraSessionId;
+
     clearAllSimonTimers();
     selectedMode = 'simon_dice';
     isPaused = false;
+    removePauseOverlays();
     showScreen('simon-dice-screen');
 
     scoreCorrect = 0;
@@ -779,60 +784,139 @@ async function startSimonDiceGame() {
     const videoElement = document.getElementById('webcam-feed');
 
     try {
-        webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-        videoElement.srcObject = webcamStream;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Este navegador no permite acceder a la cámara.');
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true
+        });
+
+        if (thisSession !== cameraSessionId) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+        }
+
+        webcamStream = stream;
+
+        // Intento opcional de zoom digital si el dispositivo lo soporta
+        const zoomTrack = stream.getVideoTracks()[0];
+        if (zoomTrack && typeof zoomTrack.getCapabilities === 'function') {
+            const cameraCapabilities = zoomTrack.getCapabilities();
+            if (cameraCapabilities.zoom && Number.isFinite(cameraCapabilities.zoom.min)) {
+                try {
+                    await zoomTrack.applyConstraints({
+                        advanced: [{ zoom: cameraCapabilities.zoom.min }]
+                    });
+                } catch (zoomError) {}
+            }
+        }
+
+        videoElement.pause();
+        videoElement.srcObject = stream;
+        videoElement.muted = true;
+        videoElement.autoplay = true;
+        videoElement.playsInline = true;
+
+        if (videoElement.readyState < HTMLMediaElement.HAVE_METADATA) {
+            await new Promise((resolve, reject) => {
+                const onLoaded = () => { cleanup(); resolve(); };
+                const onError = () => { cleanup(); reject(new Error('No se pudo iniciar la vista de la cámara.')); };
+                const cleanup = () => {
+                    videoElement.removeEventListener('loadedmetadata', onLoaded);
+                    videoElement.removeEventListener('error', onError);
+                };
+                videoElement.addEventListener('loadedmetadata', onLoaded, { once: true });
+                videoElement.addEventListener('error', onError, { once: true });
+            });
+        }
+
+        if (thisSession !== cameraSessionId) return;
         await videoElement.play();
 
-        const hiddenCanvas = document.createElement('canvas');
-        hiddenCanvas.width = 640;
-        hiddenCanvas.height = 480;
-        const ctx = hiddenCanvas.getContext('2d');
-
-        if (frameSendInterval) clearInterval(frameSendInterval);
-        frameSendInterval = setInterval(() => {
-            if (isPaused || isProcessingFrame || videoElement.readyState < 2) return;
-
-            isProcessingFrame = true;
-            ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-
-            hiddenCanvas.toBlob(async (blob) => {
-                if (!blob) {
-                    isProcessingFrame = false;
-                    return;
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.addEventListener('ended', () => {
+                if (thisSession === cameraSessionId) {
+                    stopWebcamStream();
                 }
-                const formData = new FormData();
-                formData.append('frame', blob, 'frame.jpg');
+            }, { once: true });
+        }
 
+        const hiddenCanvas = document.createElement('canvas');
+        const ctx = hiddenCanvas.getContext('2d');
+        if (!ctx) throw new Error('No se pudo preparar el procesamiento de imágenes.');
+
+        // 2. BUCLE INTELIGENTE DE ENVÍO DE FOTOGRAMAS (CAMBIO PRINCIPAL)
+        const sendNextFrame = async () => {
+            if (thisSession !== cameraSessionId || !webcamStream) return;
+
+            if (!isPaused && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+                videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                isProcessingFrame = true;
+                let controller = null;
                 try {
-                    const response = await fetch('/api/process_frame', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        currentDetectedPoseKey = data.detected || "NEUTRAL";
+                    hiddenCanvas.width = videoElement.videoWidth;
+                    hiddenCanvas.height = videoElement.videoHeight;
+                    ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.6));
+
+                    if (blob && thisSession === cameraSessionId) {
+                        const formData = new FormData();
+                        formData.append('frame', blob, 'frame.jpg');
+                        controller = new AbortController();
+                        frameRequestController = controller;
+                        const response = await fetch('/api/process_frame', {
+                            method: 'POST',
+                            body: formData,
+                            signal: controller.signal
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (thisSession === cameraSessionId) {
+                                currentDetectedPoseKey = data.detected || 'NEUTRAL';
+                            }
+                        }
                     }
                 } catch (err) {
-                    console.error("Error enviando fotograma a Python:", err);
+                    if (err.name !== 'AbortError') console.error('Error procesando la cámara:', err);
                 } finally {
-                    isProcessingFrame = false;
+                    if (thisSession === cameraSessionId) isProcessingFrame = false;
+                    if (controller && frameRequestController === controller) frameRequestController = null;
                 }
-            }, 'image/jpeg', 0.5);
-        }, 200);
+            }
 
+            if (thisSession === cameraSessionId) {
+                frameLoopTimeout = setTimeout(sendNextFrame, 160);
+            }
+        };
+
+        sendNextFrame();
         nextSimonDicePoseRound();
 
     } catch (err) {
-        console.error("Error al acceder a la cámara webcam:", err);
-        alert("No se pudo acceder a la webcam. Por favor verifica los permisos.");
+        if (thisSession !== cameraSessionId) return;
+        console.error('Error al acceder a la cámara:', err);
+        stopWebcamStream();
+        alert('No se pudo iniciar la cámara. Verificá los permisos y volvé a intentar.');
         showScreen('main-menu');
     }
 }
-
 function stopWebcamStream() {
+    cameraSessionId++;
+
     if (frameSendInterval) {
         clearInterval(frameSendInterval);
         frameSendInterval = null;
+    }
+    if (frameLoopTimeout) {
+        clearTimeout(frameLoopTimeout);
+        frameLoopTimeout = null;
+    }
+    if (frameRequestController) {
+        frameRequestController.abort();
+        frameRequestController = null;
     }
     if (diceCheckInterval) {
         clearInterval(diceCheckInterval);
@@ -840,6 +924,12 @@ function stopWebcamStream() {
     }
     clearTimeout(diceRoundTimeout);
     isProcessingFrame = false;
+
+    const videoElement = document.getElementById('webcam-feed');
+    if (videoElement) {
+        videoElement.pause();
+        videoElement.srcObject = null;
+    }
     if (webcamStream) {
         webcamStream.getTracks().forEach(track => track.stop());
         webcamStream = null;
