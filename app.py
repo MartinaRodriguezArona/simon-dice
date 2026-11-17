@@ -12,7 +12,7 @@ app = Flask(__name__)
 mp_pose = mp.solutions.pose
 detector_postura = mp_pose.Pose(
     static_image_mode=False,
-    model_complexity=1,
+    model_complexity=0,
     min_detection_confidence=0.2,
     min_tracking_confidence=0.2,
 )
