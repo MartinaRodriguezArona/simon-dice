@@ -63,13 +63,13 @@ def procesar_fotograma():
 
     # 1. Tocar la nariz
     tocar_nariz = (
-        abs(d_izq.x - nariz.x) < 0.3 and abs(d_izq.y - nariz.y) < 0.3
+    abs(d_izq.x - nariz.x) < 0.4 and abs(d_izq.y - nariz.y) < 0.4
     ) or (
-        abs(d_der.x - nariz.x) < 0.3 and abs(d_der.y - nariz.y) < 0.3
+    abs(d_der.x - nariz.x) < 0.4 and abs(d_der.y - nariz.y) < 0.4
     ) or (
-        abs(m_izq.x - nariz.x) < 0.35 and abs(m_izq.y - nariz.y) < 0.35
+    abs(m_izq.x - nariz.x) < 0.45 and abs(m_izq.y - nariz.y) < 0.45
     ) or (
-        abs(m_der.x - nariz.x) < 0.35 and abs(m_der.y - nariz.y) < 0.35
+    abs(m_der.x - nariz.x) < 0.45 and abs(m_der.y - nariz.y) < 0.45
     )
 
     # 2. Manos a la cabeza
@@ -79,7 +79,8 @@ def procesar_fotograma():
     am_arriba = (m_izq.y < h_izq.y) and (m_der.y < h_der.y)
 
     # 4. Brazos cruzados
-    brazos_cruz = (m_izq.y < c_izq.y and m_der.y < c_der.y)
+    # Brazos cruzados: las muñecas se cruzan cerca del centro del torso
+    brazos_cruz = abs(m_izq.x - m_der.x) < 0.25 and abs(m_izq.y - h_izq.y) < 0.35
 
     # 5. Una sola mano arriba
     m_izq_arriba = (m_izq.y < h_izq.y) and not (m_der.y < h_der.y)
