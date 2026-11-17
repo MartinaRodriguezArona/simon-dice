@@ -76,17 +76,24 @@ def procesar_fotograma():
         # 3. Ambas manos arriba
         am_arriba = (m_izq.y < o_izq.y - 0.08) and (m_der.y < o_der.y - 0.08)
 
-        # 4. Brazos en cruz (abiertos en T o cruzados en X frente al pecho)
-        brazos_abiertos = (
-            (abs(m_izq.y - h_izq.y) < 0.15 and abs(m_der.y - h_der.y) < 0.15)
-            and (abs(m_izq.x - h_izq.x) > 0.18 and abs(m_der.x - h_der.x) > 0.18)
+        # 4. Brazos cruzados en X delante del pecho (MODIFICADO)
+        separacion_hombros = h_izq.x - h_der.x
+        separacion_munecas = m_izq.x - m_der.x
+        hombros_visibles = h_izq.visibility > 0.35 and h_der.visibility > 0.35
+        munecas_visibles = m_izq.visibility > 0.35 and m_der.visibility > 0.35
+        zona_pecho_superior = (
+            max(h_izq.y, h_der.y) - 0.08
+            <= m_izq.y <= max(c_izq.y, c_der.y) + 0.05
+            and max(h_izq.y, h_der.y) - 0.08
+            <= m_der.y <= max(c_izq.y, c_der.y) + 0.05
         )
-        brazos_cruzados_pecho = (
-            (abs(m_izq.y - h_izq.y) < 0.22 and abs(m_der.y - h_der.y) < 0.22)
-            and (abs(m_izq.x - m_der.x) < 0.15)
+        brazos_cruz = (
+            hombros_visibles
+            and munecas_visibles
+            and separacion_hombros * separacion_munecas < 0
+            and abs(separacion_munecas) < abs(separacion_hombros) * 0.85
+            and zona_pecho_superior
         )
-        brazos_cruz = brazos_abiertos or brazos_cruzados_pecho
-
 
         # 6. Una sola mano arriba
         m_izq_arriba = (m_izq.y < o_izq.y) and not (m_der.y < o_der.y)
@@ -143,4 +150,3 @@ def abrir_navegador():
 
 if __name__ == "__main__":
     app.run()
-
