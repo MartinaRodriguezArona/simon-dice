@@ -769,7 +769,6 @@ function finishIntermediateLevel() {
    MODO SIMÓN DICE (CÁMARA MIO)
    ========================================================================== */
 async function startSimonDiceGame() {
-    // 1. Cierra sesiones anteriores de la cámara de forma limpia
     stopWebcamStream();
     const thisSession = ++cameraSessionId;
 
@@ -814,7 +813,6 @@ async function startSimonDiceGame() {
         const ctx = hiddenCanvas.getContext('2d');
         if (!ctx) throw new Error('No se pudo preparar el procesamiento de imágenes.');
 
-        // 2. Bucle inteligente y seguro de envío de fotogramas sin bloquear el hilo principal
         const sendNextFrame = async () => {
             if (thisSession !== cameraSessionId || !webcamStream) return;
 
@@ -823,11 +821,15 @@ async function startSimonDiceGame() {
                 
                 let controller = null;
                 try {
-                    hiddenCanvas.width = videoElement.videoWidth;
-                    hiddenCanvas.height = videoElement.videoHeight;
-                    ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+                    const targetWidth = 640;
+                    const targetHeight = 480;
                     
-                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.5));
+                    if (hiddenCanvas.width !== targetWidth) hiddenCanvas.width = targetWidth;
+                    if (hiddenCanvas.height !== targetHeight) hiddenCanvas.height = targetHeight;
+
+                    ctx.drawImage(videoElement, 0, 0, targetWidth, targetHeight);
+                    
+                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.6));
 
                     if (blob && thisSession === cameraSessionId) {
                         const formData = new FormData();
@@ -836,7 +838,6 @@ async function startSimonDiceGame() {
                         controller = new AbortController();
                         frameRequestController = controller;
                         
-                        // Timeout de seguridad de 1.5s para evitar que el fetch bloquee la UI si Flask demora
                         const timeoutId = setTimeout(() => controller.abort(), 1500);
 
                         const response = await fetch('/api/process_frame', {
@@ -855,7 +856,7 @@ async function startSimonDiceGame() {
                         }
                     }
                 } catch (err) {
-                    // Ignoramos errores de cancelación o red temporales para mantener la fluidez
+                    // Ignorar errores de red temporales
                 } finally {
                     if (controller && frameRequestController === controller) {
                         frameRequestController = null;
@@ -864,7 +865,7 @@ async function startSimonDiceGame() {
             }
 
             if (thisSession === cameraSessionId) {
-                frameLoopTimeout = setTimeout(sendNextFrame, 200); // Intervalo optimizado a 200ms
+                frameLoopTimeout = setTimeout(sendNextFrame, 150);
             }
         };
 
