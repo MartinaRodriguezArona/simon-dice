@@ -13,8 +13,8 @@ mp_pose = mp.solutions.pose
 detector_postura = mp_pose.Pose(
     static_image_mode=False,
     model_complexity=1,
-    min_detection_confidence=0.3,
-    min_tracking_confidence=0.3,
+    min_detection_confidence=0.2,
+    min_tracking_confidence=0.2,
 )
 
 ultima_postura_detectada = "NEUTRAL"
