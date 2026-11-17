@@ -813,7 +813,7 @@ async function startSimonDiceGame() {
         const ctx = hiddenCanvas.getContext('2d');
         if (!ctx) throw new Error('No se pudo preparar el procesamiento de imágenes.');
 
-       let isRequestInFlight = false;
+        let isRequestInFlight = false;
 
         const sendNextFrame = async () => {
             if (thisSession !== cameraSessionId || !webcamStream) return;
@@ -841,27 +841,34 @@ async function startSimonDiceGame() {
                         controller = new AbortController();
                         frameRequestController = controller;
                         
-                        // Subimos el timeout a 8 segundos por seguridad
                         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-             try {
-                    const response = await fetch('/api/process_frame', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        currentDetectedPoseKey = data.detected || "NEUTRAL";
+                        const response = await fetch('/api/process_frame', {
+                            method: 'POST',
+                            body: formData,
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (thisSession === cameraSessionId) {
+                                currentDetectedPoseKey = data.detected || 'NEUTRAL';
+                            }
+                        }
                     }
                 } catch (err) {
-                    console.error("Error enviando fotograma a Python:", err);
+                    // Ignora timeouts o cancelaciones temporales sin romper el juego
                 } finally {
-                    isProcessingFrame = false;
+                    isRequestInFlight = false;
+                    if (controller && frameRequestController === controller) {
+                        frameRequestController = null;
+                    }
                 }
             }
 
             if (thisSession === cameraSessionId) {
-                // Espaciamos un poco más los intentos (800ms) para darle respiro a Python
                 frameLoopTimeout = setTimeout(sendNextFrame, 800);
             }
         };
