@@ -966,7 +966,7 @@ function nextSimonDicePoseRound() {
 
         const secondsLeft = Math.ceil((timeLimit * 150) / 1000);
         document.getElementById('dice-feedback-text').innerText =
-            `Ronda ${diceRoundCount} (${secondsLeft}s) | Aciertos: ${scoreCorrect} | Errores: ${scoreIncorrect}/3 — ${currentTargetPose.emoji} (Detectado: ${currentDetectedPoseKey})`;
+            `Ronda ${diceRoundCount} (${secondsLeft}s) | 🎯 Objetivo: ${currentTargetPose.emoji} | Detectado: ${currentDetectedPoseKey}`;
 
         if (isSimonCommand) {
             if (currentDetectedPoseKey === currentTargetPose.key) {
