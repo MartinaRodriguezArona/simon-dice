@@ -823,6 +823,7 @@ async function startSimonDiceGame() {
                 
                 isRequestInFlight = true;
                 let controller = null;
+                let timeoutId = null;
                 try {
                     const targetWidth = 320;
                     const targetHeight = 240;
@@ -841,7 +842,7 @@ async function startSimonDiceGame() {
                         controller = new AbortController();
                         frameRequestController = controller;
                         
-                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        timeoutId = setTimeout(() => controller.abort(), 8000);
 
                         const response = await fetch('/api/process_frame', {
                             method: 'POST',
@@ -861,6 +862,7 @@ async function startSimonDiceGame() {
                 } catch (err) {
                     // Ignora timeouts o cancelaciones temporales sin romper el juego
                 } finally {
+                    if (timeoutId) clearTimeout(timeoutId);
                     isRequestInFlight = false;
                     if (controller && frameRequestController === controller) {
                         frameRequestController = null;
@@ -884,69 +886,6 @@ async function startSimonDiceGame() {
         showScreen('main-menu');
     }
 }
-
-function stopWebcamStream() {
-    cameraSessionId++;
-
-    if (frameLoopTimeout) {
-        clearTimeout(frameLoopTimeout);
-        frameLoopTimeout = null;
-    }
-    if (frameRequestController) {
-        frameRequestController.abort();
-        frameRequestController = null;
-    }
-    if (diceCheckInterval) {
-        clearInterval(diceCheckInterval);
-        diceCheckInterval = null;
-    }
-    clearTimeout(diceRoundTimeout);
-
-    const videoElement = document.getElementById('webcam-feed');
-    if (videoElement) {
-        videoElement.pause();
-        videoElement.srcObject = null;
-    }
-    if (webcamStream) {
-        webcamStream.getTracks().forEach(track => track.stop());
-        webcamStream = null;
-    }
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-}
-
-function speakSimonInstruction(text) {
-    if (!voiceEnabled || !('speechSynthesis' in window)) return;
-    try {
-        window.speechSynthesis.cancel();
-        currentUtterance = new SpeechSynthesisUtterance(text);
-        const voices = window.speechSynthesis.getVoices();
-        const spanishVoice = voices.find(v => v.lang.startsWith('es'));
-        if (spanishVoice) currentUtterance.voice = spanishVoice;
-        currentUtterance.lang = spanishVoice ? spanishVoice.lang : 'es-ES';
-        currentUtterance.rate = 1.25;
-        currentUtterance.volume = 1.0;
-        window.speechSynthesis.speak(currentUtterance);
-    } catch (e) {}
-}
-
-function nextSimonDicePoseRound() {
-    // Limpiar cualquier temporizador previo para evitar que se superpongan rondas
-    if (diceCheckInterval) {
-        clearInterval(diceCheckInterval);
-        diceCheckInterval = null;
-    }
-    clearTimeout(diceRoundTimeout);
-
-    if (scoreIncorrect >= 3) {
-        stopWebcamStream();
-        showResultScreen(
-            'game_over',
-            '¡Fin de Simón Dice!',
-            `Acumulaste 3 errores.\nRondas acertadas: ${scoreCorrect} | Errores: ${scoreIncorrect}`,
-            () => showScreen('main-menu')
-        );
-        return;
-    }
 
     diceRoundCount++;
     currentDetectedPoseKey = "NEUTRAL";
