@@ -784,8 +784,8 @@ async function startSimonDiceGame() {
         await videoElement.play();
 
         const hiddenCanvas = document.createElement('canvas');
-        hiddenCanvas.width = 640;
-        hiddenCanvas.height = 480;
+        hiddenCanvas.width = 320;
+        hiddenCanvas.height = 240;
         const ctx = hiddenCanvas.getContext('2d');
 
         if (frameSendInterval) clearInterval(frameSendInterval);
@@ -817,8 +817,8 @@ async function startSimonDiceGame() {
                 } finally {
                     isProcessingFrame = false;
                 }
-            }, 'image/jpeg', 0.5);
-        }, 200);
+            }, 'image/jpeg', 0.4);
+        }, 400);
 
         nextSimonDicePoseRound();
 
