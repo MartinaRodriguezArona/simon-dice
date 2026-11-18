@@ -486,7 +486,7 @@ async function startSimonDiceGame() {
 
     try {
         if (!navigator.mediaDevices?.getUserMedia) {
-            throw new Error('Navegador sin soporte de cámara.');
+            throw new Error('Este navegador no soporta el acceso a la cámara.');
         }
 
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -501,24 +501,41 @@ async function startSimonDiceGame() {
 
         webcamStream = stream;
         videoElement.srcObject = stream;
+        videoElement.muted = true;
+        videoElement.autoplay = true;
+        videoElement.playsInline = true;
+
         await videoElement.play().catch(() => {});
 
+        // Canvas offscreen optimizado para reducción de payload
         const hiddenCanvas = document.createElement('canvas');
-        const ctx = hiddenCanvas.getContext('2d');
-        let isRequestInFlight = false;
+        const ctx = hiddenCanvas.getContext('2d', { alpha: false });
+        if (!ctx) throw new Error('No se pudo inicializar el contexto del canvas.');
+
+        // Semáforo de exclusión mutua para evitar saturación de red
+        let isNetworkBusy = false;
 
         const sendNextFrame = async () => {
+            // Si la sesión cambió o el juego está pausado, abortamos el ciclo
             if (thisSession !== cameraSessionId || !webcamStream) return;
 
-            if (!isPaused && !isRequestInFlight && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-                isRequestInFlight = true;
+            // Condición de exclusión: Si la red está ocupada o el video no está listo, saltamos este fotograma (Drop Frame)
+            if (!isPaused && !isNetworkBusy && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                isNetworkBusy = true;
                 let controller = null;
                 let timeoutId = null;
+
                 try {
-                    hiddenCanvas.width = 320;
-                    hiddenCanvas.height = 240;
-                    ctx.drawImage(videoElement, 0, 0, 320, 240);
+                    // Dimensiones reducidas para minimizar el ancho de banda y acelerar el servidor
+                    const targetWidth = 320;
+                    const targetHeight = 240;
                     
+                    if (hiddenCanvas.width !== targetWidth) hiddenCanvas.width = targetWidth;
+                    if (hiddenCanvas.height !== targetHeight) hiddenCanvas.height = targetHeight;
+
+                    ctx.drawImage(videoElement, 0, 0, targetWidth, targetHeight);
+                    
+                    // Conversión a Blob con compresión agresiva (calidad 0.5) para minimizar latencia
                     const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.5));
 
                     if (blob && thisSession === cameraSessionId) {
@@ -527,7 +544,9 @@ async function startSimonDiceGame() {
                         
                         controller = new AbortController();
                         frameRequestController = controller;
-                        timeoutId = setTimeout(() => controller.abort(), 6000);
+                        
+                        // Timeout de seguridad amplio (ej. 5 segundos)
+                        timeoutId = setTimeout(() => controller.abort(), 5000);
 
                         const response = await fetch('/api/process_frame', {
                             method: 'POST',
@@ -535,6 +554,8 @@ async function startSimonDiceGame() {
                             signal: controller.signal
                         });
                         
+                        clearTimeout(timeoutId);
+
                         if (response.ok) {
                             const data = await response.json();
                             if (thisSession === cameraSessionId) {
@@ -543,25 +564,28 @@ async function startSimonDiceGame() {
                         }
                     }
                 } catch (err) {
-                    // Control de errores de red o abortos controlados sin bloquear el hilo
+                    // Los abortos o errores de red se silencian controladamente sin romper el loop de juego
                 } finally {
                     if (timeoutId) clearTimeout(timeoutId);
-                    isRequestInFlight = false;
+                    isNetworkBusy = false; // Liberamos el semáforo para el próximo fotograma disponible
                 }
             }
 
+            // Siguiente ciclo de sondeo controlado (intervalo de 400ms a 500ms para dar respiro al servidor)
             if (thisSession === cameraSessionId) {
-                frameLoopTimeout = setTimeout(sendNextFrame, 600);
+                frameLoopTimeout = setTimeout(sendNextFrame, 450);
             }
         };
 
+        // Inicializamos el loop de envío y la lógica de rondas
         sendNextFrame();
         nextSimonDicePoseRound();
 
     } catch (err) {
         if (thisSession !== cameraSessionId) return;
+        console.error('Error crítico al inicializar la webcam:', err);
         stopWebcamStream();
-        alert('No se pudo iniciar la cámara. Verificá los permisos.');
+        alert('No se pudo iniciar la cámara. Verificá los permisos y volvé a intentar.');
         showScreen('main-menu');
     }
 }
