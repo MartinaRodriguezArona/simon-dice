@@ -765,6 +765,10 @@ function finishIntermediateLevel() {
 /* ==========================================================================
    MODO SIMÓN DICE (CÁMARA MIO)
    ========================================================================== */
+let poseDetector = null;
+let mpCamera = null;
+let lastSentTime = 0;
+
 async function startSimonDiceGame() {
     clearAllSimonTimers();
     selectedMode = 'simon_dice';
@@ -779,51 +783,66 @@ async function startSimonDiceGame() {
     const videoElement = document.getElementById('webcam-feed');
 
     try {
-        webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-        videoElement.srcObject = webcamStream;
-        await videoElement.play();
-
-        const hiddenCanvas = document.createElement('canvas');
-        hiddenCanvas.width = 320;
-        hiddenCanvas.height = 240;
-        const ctx = hiddenCanvas.getContext('2d');
-
-        if (frameSendInterval) clearInterval(frameSendInterval);
-        frameSendInterval = setInterval(() => {
-            if (isPaused || isProcessingFrame || videoElement.readyState < 2) return;
-
-            isProcessingFrame = true;
-            ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-
-            hiddenCanvas.toBlob(async (blob) => {
-                if (!blob) {
-                    isProcessingFrame = false;
+        if (!poseDetector) {
+            poseDetector = new Pose({
+                locateFile: (file) => `https://jsdelivr.net{file}`
+            });
+            poseDetector.setOptions({
+                modelComplexity: 0,
+                smoothLandmarks: true,
+                minDetectionConfidence: 0.4,
+                minTrackingConfidence: 0.4
+            });
+            poseDetector.onResults(async (results) => {
+                if (isPaused || isProcessingFrame) return;
+                if (!results.poseLandmarks) {
+                    currentDetectedPoseKey = "NEUTRAL";
                     return;
                 }
-                const formData = new FormData();
-                formData.append('frame', blob, 'frame.jpg');
+
+                const now = Date.now();
+                if (now - lastSentTime < 250) return;
+                lastSentTime = now;
+                isProcessingFrame = true;
 
                 try {
-                    const response = await fetch('/api/process_frame', {
+                    const simplifiedLandmarks = results.poseLandmarks.map(p => ({ x: p.x, y: p.y }));
+                    const response = await fetch('/api/classify_landmarks', {
                         method: 'POST',
-                        body: formData
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ landmarks: simplifiedLandmarks })
                     });
                     if (response.ok) {
                         const data = await response.json();
                         currentDetectedPoseKey = data.detected || "NEUTRAL";
                     }
                 } catch (err) {
-                    console.error("Error enviando fotograma a Python:", err);
+                    console.error("Error enviando puntos a Python:", err);
                 } finally {
                     isProcessingFrame = false;
                 }
-            }, 'image/jpeg', 0.4);
-        }, 400);
+            });
+        }
 
+        if (mpCamera) {
+            await mpCamera.stop();
+        }
+
+        mpCamera = new Camera(videoElement, {
+            onFrame: async () => {
+                if (!isPaused && poseDetector) {
+                    await poseDetector.send({ image: videoElement });
+                }
+            },
+            width: 640,
+            height: 480
+        });
+
+        await mpCamera.start();
         nextSimonDicePoseRound();
 
     } catch (err) {
-        console.error("Error al acceder a la cámara webcam:", err);
+        console.error("Error al iniciar cámara o MediaPipe:", err);
         alert("No se pudo acceder a la webcam. Por favor verifica los permisos.");
         showScreen('main-menu');
     }
@@ -840,6 +859,11 @@ function stopWebcamStream() {
     }
     clearTimeout(diceRoundTimeout);
     isProcessingFrame = false;
+
+    if (mpCamera) {
+        mpCamera.stop().catch(() => {});
+        mpCamera = null;
+    }
     if (webcamStream) {
         webcamStream.getTracks().forEach(track => track.stop());
         webcamStream = null;
