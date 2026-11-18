@@ -155,6 +155,24 @@
         </div>
     </div>
 
+    <!-- 5. Pantalla de Calibración y Tutorial previo -->
+    <div id="calibration-screen" class="screen hidden">
+        <video id="calibration-video" class="webcam-fullscreen" autoplay playsinline muted></video>
+        <div id="calibration-target-emoji" class="emoji-banner">⚙️</div>
+        <div class="dice-overlay-status">
+            <span id="calibration-status-text">Iniciando calibración...</span>
+        </div>
+    </div>
+
+    <!-- 6. Pantalla Simón Dice: Cámara en Pantalla Completa -->
+    <div id="simon-dice-screen" class="screen hidden">
+        <video id="webcam-feed" class="webcam-fullscreen" autoplay playsinline muted></video>
+        <div id="dice-target-emoji" class="emoji-banner">⏳</div>
+        <div class="dice-overlay-status">
+            <span id="dice-feedback-text">Analizando postura corporal...</span>
+        </div>
+    </div>
+
     <!-- 5. Pantalla Simón Dice: Cámara en Pantalla Completa -->
     <div id="simon-dice-screen" class="screen hidden">
         <video id="webcam-feed" class="webcam-fullscreen" autoplay playsinline muted></video>
