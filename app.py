@@ -3,6 +3,12 @@ from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
+@app.after_request
+def add_security_headers(response):
+    # Permite explícitamente el uso de la cámara en el navegador del cliente
+    response.headers['Permissions-Policy'] = 'camera=(self)'
+    return response
+
 ultima_postura_detectada = "NEUTRAL"
 game_records = {"intermediate_level_2": 0, "hard_level_3": 0}
 
