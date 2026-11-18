@@ -54,8 +54,9 @@ def clasificar_postura():
         manos_cabeza = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"]) and (abs(m_izq["x"] - o_izq["x"]) < 0.4)
         am_arriba = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"])
         brazos_cruz = abs(m_izq["x"] - m_der["x"]) < 0.25 and abs(m_izq["y"] - h_izq["y"]) < 0.35
-        m_izq_arriba = (m_izq["y"] < h_izq["y"]) and not (m_der["y"] < h_der["y"])
-        m_der_arriba = (m_der["y"] < h_der["y"]) and not (m_izq["y"] < h_izq["y"])
+        # Permitimos un pequeño margen de flexibilidad para que no falle si el otro brazo se mueve un poco
+        m_der_arriba = (m_der["y"] < h_der["y"]) and (m_izq["y"] > h_izq["y"] - 0.05)
+        m_izq_arriba = (m_izq["y"] < h_izq["y"]) and (m_der["y"] > h_der["y"] - 0.05)
         pie_izq_arriba = (t_der["y"] - t_izq["y"]) > 0.08
         pie_der_arriba = (t_izq["y"] - t_der["y"]) > 0.08
 
