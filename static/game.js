@@ -785,7 +785,7 @@ async function startSimonDiceGame() {
     try {
         if (!poseDetector) {
             poseDetector = new Pose({
-                locateFile: (file) => `https://jsdelivr.net{file}`
+                locateFile: (file) => `https://unpkg.com{file}``
             });
             poseDetector.setOptions({
                 modelComplexity: 0,
