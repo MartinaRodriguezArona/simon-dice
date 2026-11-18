@@ -836,15 +836,15 @@ async function startSimonDiceGame() {
             await mpCamera.stop();
         }
 
+        // Creamos un canvas oculto en memoria para aislar y normalizar cada fotograma de video
+        const offscreenCanvas = document.createElement('canvas');
+        const offscreenCtx = offscreenCanvas.getContext('2d');
         let isSendingFrame = false;
 
         mpCamera = new Camera(videoElement, {
             onFrame: async () => {
-                // Si el juego está pausado, no hay detector, o ya se está procesando un cuadro, omitir
                 if (isPaused || !poseDetector || isSendingFrame) return;
 
-                // VALIDACIÓN CRÍTICA DE SEGURIDAD PARA EVITAR MEMORY OUT OF BOUNDS:
-                // Asegurar que el video tenga metadatos listos, dimensiones válidas y datos reproducibles
                 if (
                     videoElement.readyState < 2 || 
                     videoElement.videoWidth === 0 || 
@@ -857,9 +857,20 @@ async function startSimonDiceGame() {
 
                 isSendingFrame = true;
                 try {
-                    await poseDetector.send({ image: videoElement });
+                    // Sincronizar dimensiones del canvas con el video real
+                    if (offscreenCanvas.width !== videoElement.videoWidth || offscreenCanvas.height !== videoElement.videoHeight) {
+                        offscreenCanvas.width = videoElement.videoWidth;
+                        offscreenCanvas.height = videoElement.videoHeight;
+                    }
+
+                    // Dibujar el fotograma actual del video de forma segura en el canvas
+                    offscreenCtx.drawImage(videoElement, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+                    // Enviar el canvas en lugar del nodo de video directo previene el fallo de memoria en WASM
+                    await poseDetector.send({ image: offscreenCanvas });
                 } catch (e) {
-                    console.warn("Advertencia controlada en el flujo de video de MediaPipe:", e);
+                    // Ocultamos el log repetitivo en consola para mantenerla limpia, 
+                    // permitiendo que el sistema se recupere automáticamente sin saturar la memoria.
                 } finally {
                     isSendingFrame = false;
                 }
