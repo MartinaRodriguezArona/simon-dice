@@ -80,16 +80,16 @@ def clasificar_postura():
 
         if am_arriba:
             ultima_postura_detectada = "🙌"
+        elif m_der_arriba and not m_izq_arriba:
+            ultima_postura_detectada = "🙋‍♀️"
+        elif m_izq_arriba and not m_der_arriba:
+            ultima_postura_detectada = "🙋‍♂️"
         elif manos_oidos:
             ultima_postura_detectada = "🙉"
         elif tocar_nariz:
             ultima_postura_detectada = "👉👃"
         elif brazos_cruz:
             ultima_postura_detectada = "🙅‍♀️"
-        elif m_der_arriba and not m_izq_arriba:
-            ultima_postura_detectada = "🙋‍♀️"
-        elif m_izq_arriba and not m_der_arriba:
-            ultima_postura_detectada = "🙋‍♂️"
         elif pie_izq_arriba:
             ultima_postura_detectada = "🦵⬅️"
         elif pie_der_arriba:
