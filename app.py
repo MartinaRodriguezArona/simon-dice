@@ -1,7 +1,6 @@
 import os
 import threading
 import time
-import webbrowser
 import cv2
 import numpy as np
 from flask import Flask, jsonify, render_template, request
@@ -18,17 +17,15 @@ detector_postura = mp_pose.Pose(
     min_tracking_confidence=0.3,
 )
 
-# 🔒 LOCK DE SEGURIDAD: Evita que MediaPipe colapse por peticiones simultáneas
+# 🔒 LOCK DE SEGURIDAD: Evita que MediaPipe colapse por concurrencia
 media_pipe_lock = threading.Lock()
 
 ultima_postura_detectada = "NEUTRAL"
 game_records = {"intermediate_level_2": 0, "hard_level_3": 0}
 
-
 @app.route("/")
 def inicio():
     return render_template("index.html")
-
 
 @app.route("/api/process_frame", methods=["POST"])
 def procesar_fotograma():
@@ -44,7 +41,7 @@ def procesar_fotograma():
         if fotograma is None:
             return jsonify({"detected": "NEUTRAL", "status": "bad_frame"}), 400
 
-        # Reducir resolución para velocidad óptima en milisegundos
+        # Reducir resolución para respuesta en milisegundos
         alto, ancho = fotograma.shape[:2]
         nuevo_ancho = 256
         nuevo_alto = int(alto * (nuevo_ancho / ancho))
@@ -52,7 +49,7 @@ def procesar_fotograma():
         
         rgb = cv2.cvtColor(fotograma, cv2.COLOR_BGR2RGB)
 
-        # 🛡️ Zona protegida: Solo un hilo a la vez ejecuta el modelo de MediaPipe
+        # 🛡️ Zona protegida por Lock: MediaPipe procesa de forma síncrona y segura
         with media_pipe_lock:
             resultados = detector_postura.process(rgb)
 
@@ -68,13 +65,10 @@ def procesar_fotograma():
         o_der = puntos[mp_pose.PoseLandmark.RIGHT_EAR]
         h_izq = puntos[mp_pose.PoseLandmark.LEFT_SHOULDER]
         h_der = puntos[mp_pose.PoseLandmark.RIGHT_SHOULDER]
-        c_izq = puntos[mp_pose.PoseLandmark.LEFT_HIP]
-        c_der = puntos[mp_pose.PoseLandmark.RIGHT_HIP]
         t_izq = puntos[mp_pose.PoseLandmark.LEFT_ANKLE]
         t_der = puntos[mp_pose.PoseLandmark.RIGHT_ANKLE]
         nariz = puntos[mp_pose.PoseLandmark.NOSE]
 
-        # Lógica de detección de posturas
         tocar_nariz = (
             abs(d_izq.x - nariz.x) < 0.4 and abs(d_izq.y - nariz.y) < 0.4
         ) or (
@@ -115,9 +109,8 @@ def procesar_fotograma():
         return jsonify({"detected": ultima_postura_detectada, "status": "ok"})
 
     except Exception as e:
-        print(f"⚠️ Error crítico en procesar_fotograma: {e}")
+        print(f"⚠️ Error en procesar_fotograma: {e}")
         return jsonify({"detected": "NEUTRAL", "status": "error", "message": str(e)}), 500
-
 
 @app.route("/api/save_record", methods=["POST"])
 def save_record():
@@ -128,13 +121,11 @@ def save_record():
         game_records[mode] = score
     return jsonify({"saved": True, "new_record": game_records[mode]})
 
-
 @app.route("/api/records", methods=["GET"])
 def get_records():
     return jsonify(game_records)
 
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # threaded=True permite gestionar solicitudes múltiples ordenadamente
+    # threaded=True habilita el soporte multihilo seguro de Flask
     app.run(host="0.0.0.0", port=port, threaded=True)
