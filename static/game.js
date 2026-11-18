@@ -224,7 +224,6 @@ function showScreen(screenId) {
     const target = document.getElementById(screenId);
     if (target) target.classList.remove('hidden');
 
-    // Mostrar el botón hamburguesa SOLO cuando está jugando dentro de niveles o en simon_dice
     const hamburger = document.getElementById('btn-hamburger');
     if (screenId === 'simon-game-screen' || screenId === 'simon-dice-screen') {
         hamburger.classList.remove('hidden');
@@ -269,7 +268,7 @@ function selectMode(mode) {
     }
 }
 
-/* --- MENÚ HAMBURGUESA GLOBAL (BARRES CON TOOLTIPS) --- */
+/* --- MENÚ HAMBURGUESA GLOBAL --- */
 function toggleGlobalMenu() {
     const dropdown = document.getElementById('hamburger-dropdown');
     dropdown.classList.toggle('hidden');
@@ -501,7 +500,6 @@ function updateSimonHUD() {
         valText.style.display = 'none';
     }
 
-    // --- BLOQUE DE CORAZONES ---
     let livesEl = document.getElementById('simon-lives-display');
     if (!livesEl && progressPanel) {
         livesEl = document.createElement('div');
@@ -523,14 +521,12 @@ function updateSimonHUD() {
             livesEl.style.display = 'none';
         }
     }
-    // ---------------------------
 
     fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
     valText.textContent = `${Math.round(pct)}%`;
     labelText.textContent = label;
     msgText.textContent = msg;
 }
-
 
 function nextSimonRound() {
     playerInput = [];
@@ -548,9 +544,7 @@ function nextSimonRound() {
         if (hardPhase === 1) {
             if (hardCorrectInPhaseOne == 4) {
                 stopHardTimer();
-                // Mostrar correctamente la ventana intermedia de fase completada y luego pasar a la Etapa 2
-                
-                    showResultScreen('survival_unlocked', '¡Comienza CHALLENGE EXTREME!', 'Invertí el orden de las 8 secuencias. Tenés 3 corazones.', startHardPhaseTwo);
+                showResultScreen('survival_unlocked', '¡Comienza CHALLENGE EXTREME!', 'Invertí el orden de las 8 secuencias. Tenés 3 corazones.', startHardPhaseTwo);
                 return;
             }
             sequence = [Math.floor(Math.random() * 4), Math.floor(Math.random() * 4)];
@@ -623,7 +617,6 @@ function handlePadClick(index) {
             if (hardPhaseOneRemaining <= 0) return;
         }
 
-        // En Nivel 1 repite la misma secuencia hasta que el usuario la acierte
         updateSimonHUD();
         playerInput = [];
         roundTimeout = setTimeout(playSequence, 800);
@@ -648,7 +641,6 @@ function handlePadClick(index) {
         roundTimeout = setTimeout(nextSimonRound, 900);
     }
 }
-
 
 /* --- TEMPORIZADORES NIVEL 3 --- */
 function stopHardTimer() {
@@ -694,7 +686,6 @@ function startHardPhaseTwo() {
     sequence = [];
     playerInput = [];
 
-    // Vuelve a mostrar el botón de las 3 rayitas (menú hamburguesa)
     document.getElementById('btn-hamburger')?.classList.remove('hidden');
 
     if (hardTimerInterval) clearInterval(hardTimerInterval);
@@ -783,7 +774,6 @@ async function startSimonDiceGame() {
     const videoElement = document.getElementById('webcam-feed');
 
     try {
-        // Validación de robustez: comprobar si MediaPipe se cargó correctamente
         if (typeof Pose === 'undefined') {
             throw new Error("La librería MediaPipe Pose no se ha cargado correctamente en el navegador.");
         }
@@ -791,7 +781,6 @@ async function startSimonDiceGame() {
         if (!poseDetector) {
             poseDetector = new Pose({
                 locateFile: (file) => {
-                    // Retorna la URL absoluta y correcta para cada asset que solicite MediaPipe
                     return `https://unpkg.com/@mediapipe/pose/${file}`;
                 }
             });
@@ -832,11 +821,10 @@ async function startSimonDiceGame() {
             });
         }
 
-       if (mpCamera) {
+        if (mpCamera) {
             await mpCamera.stop();
         }
 
-        // Creamos un canvas oculto en memoria para aislar y normalizar cada fotograma de video
         const offscreenCanvas = document.createElement('canvas');
         const offscreenCtx = offscreenCanvas.getContext('2d');
         let isSendingFrame = false;
@@ -857,20 +845,15 @@ async function startSimonDiceGame() {
 
                 isSendingFrame = true;
                 try {
-                    // Sincronizar dimensiones del canvas con el video real
                     if (offscreenCanvas.width !== videoElement.videoWidth || offscreenCanvas.height !== videoElement.videoHeight) {
                         offscreenCanvas.width = videoElement.videoWidth;
                         offscreenCanvas.height = videoElement.videoHeight;
                     }
 
-                    // Dibujar el fotograma actual del video de forma segura en el canvas
                     offscreenCtx.drawImage(videoElement, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
-
-                    // Enviar el canvas en lugar del nodo de video directo previene el fallo de memoria en WASM
                     await poseDetector.send({ image: offscreenCanvas });
                 } catch (e) {
-                    // Ocultamos el log repetitivo en consola para mantenerla limpia, 
-                    // permitiendo que el sistema se recupere automáticamente sin saturar la memoria.
+                    // Control silencioso de excepciones para mantener la consola limpia
                 } finally {
                     isSendingFrame = false;
                 }
@@ -881,6 +864,13 @@ async function startSimonDiceGame() {
 
         await mpCamera.start();
         nextSimonDicePoseRound();
+
+    } catch (err) {
+        console.error("Error al iniciar cámara o MediaPipe:", err);
+        alert("No se pudo inicializar MediaPipe o la webcam. Verifica tu conexión a internet.");
+        showScreen('main-menu');
+    }
+}
 
 function stopWebcamStream() {
     if (frameSendInterval) {
@@ -921,7 +911,6 @@ function speakSimonInstruction(text) {
 }
 
 function nextSimonDicePoseRound() {
-    // Limpiar cualquier temporizador previo para evitar que se superpongan rondas
     if (diceCheckInterval) {
         clearInterval(diceCheckInterval);
         diceCheckInterval = null;
@@ -951,7 +940,6 @@ function nextSimonDicePoseRound() {
     document.getElementById('dice-target-emoji').innerText = currentTargetPose.emoji;
     speakSimonInstruction(spokenText);
 
-    // 40 ciclos x 150ms = 6 segundos completos para hacer la pose cómodamente
     let timeLimit = 40;
     let roundResolved = false;
 
