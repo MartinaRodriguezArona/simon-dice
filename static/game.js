@@ -836,10 +836,23 @@ async function startSimonDiceGame() {
             await mpCamera.stop();
         }
 
+        // Bandera local para evitar enviar fotogramas concurrentes a WebAssembly
+        let isSendingFrame = false;
+
         mpCamera = new Camera(videoElement, {
             onFrame: async () => {
-                if (!isPaused && poseDetector) {
+                // Si el juego está pausado, no hay detector, o ya se está procesando un cuadro, omitir
+                if (isPaused || !poseDetector || isSendingFrame) return;
+                
+                isSendingFrame = true;
+                try {
                     await poseDetector.send({ image: videoElement });
+                } catch (e) {
+                    // Capturar cualquier desajuste menor de timestamp sin tumbar el hilo de ejecución
+                    console.warn("Advertencia en el flujo de video de MediaPipe:", e);
+                } finally {
+                    // Liberar el semáforo para el siguiente frame
+                    isSendingFrame = false;
                 }
             },
             width: 640,
