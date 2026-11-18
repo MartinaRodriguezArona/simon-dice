@@ -790,7 +790,10 @@ async function startSimonDiceGame() {
 
         if (!poseDetector) {
             poseDetector = new Pose({
-                locateFile: (file) => "https://unpkg.com" + "@mediapipe/pose/" + file
+                locateFile: (file) => {
+                    // Retorna la URL absoluta y correcta para cada asset que solicite MediaPipe
+                    return `https://unpkg.com/@mediapipe/pose/${file}`;
+                }
             });
             poseDetector.setOptions({
                 modelComplexity: 0,
