@@ -47,9 +47,6 @@ let diceRoundTimeout = null;
 let diceRoundCount = 0;
 let isSimonCommand = true;
 let currentUtterance = null;
-let cameraSessionId = 0;
-let frameLoopTimeout = null;
-let frameRequestController = null;
 
 const POSES_DICT = [
     { emoji: '🙌', name: 'Ambas Manos Arriba', key: '🙌' },
@@ -769,14 +766,9 @@ function finishIntermediateLevel() {
    MODO SIMÓN DICE (CÁMARA MIO)
    ========================================================================== */
 async function startSimonDiceGame() {
-    stopWebcamStream();
-    const thisSession = ++cameraSessionId;
-
     clearAllSimonTimers();
     selectedMode = 'simon_dice';
     isPaused = false;
-    document.getElementById('simon-pause-overlay')?.remove();
-    document.getElementById('dice-pause-overlay')?.remove();
     showScreen('simon-dice-screen');
 
     scoreCorrect = 0;
@@ -787,115 +779,67 @@ async function startSimonDiceGame() {
     const videoElement = document.getElementById('webcam-feed');
 
     try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error('Este navegador no permite acceder a la cámara.');
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }
-        });
-
-        if (thisSession !== cameraSessionId) {
-            stream.getTracks().forEach(track => track.stop());
-            return;
-        }
-
-        webcamStream = stream;
-        videoElement.srcObject = stream;
-        videoElement.muted = true;
-        videoElement.autoplay = true;
-        videoElement.playsInline = true;
-
-        await videoElement.play().catch(() => {});
+        webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        videoElement.srcObject = webcamStream;
+        await videoElement.play();
 
         const hiddenCanvas = document.createElement('canvas');
+        hiddenCanvas.width = 640;
+        hiddenCanvas.height = 480;
         const ctx = hiddenCanvas.getContext('2d');
-        if (!ctx) throw new Error('No se pudo preparar el procesamiento de imágenes.');
 
-        let isNetworkBusy = false;
+        if (frameSendInterval) clearInterval(frameSendInterval);
+        frameSendInterval = setInterval(() => {
+            if (isPaused || isProcessingFrame || videoElement.readyState < 2) return;
 
-        const sendNextFrame = async () => {
-            if (thisSession !== cameraSessionId || !webcamStream) return;
+            isProcessingFrame = true;
+            ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
 
-            if (!isPaused && !isNetworkBusy && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-                videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
-                
-                isNetworkBusy = true;
+            hiddenCanvas.toBlob(async (blob) => {
+                if (!blob) {
+                    isProcessingFrame = false;
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('frame', blob, 'frame.jpg');
+
                 try {
-                    const targetWidth = 320;
-                    const targetHeight = 240;
-                    
-                    if (hiddenCanvas.width !== targetWidth) hiddenCanvas.width = targetWidth;
-                    if (hiddenCanvas.height !== targetHeight) hiddenCanvas.height = targetHeight;
-
-                    ctx.drawImage(videoElement, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-                    
-                    const blob = await new Promise(resolve => hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.5));
-
-                    if (blob && thisSession === cameraSessionId) {
-                        const formData = new FormData();
-                        formData.append('frame', blob, 'frame.jpg');
-                        
-                        // FETCH LIMPIO Y ESTABLE: Sin AbortController que fuerce cancelaciones por timeout.
-                        const response = await fetch('/api/process_frame', {
-                            method: 'POST',
-                            body: formData
-                        });
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (thisSession === cameraSessionId) {
-                                currentDetectedPoseKey = data.detected || 'NEUTRAL';
-                            }
-                        }
+                    const response = await fetch('/api/process_frame', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        currentDetectedPoseKey = data.detected || "NEUTRAL";
                     }
                 } catch (err) {
-                    console.error('Error de red procesando fotograma:', err);
+                    console.error("Error enviando fotograma a Python:", err);
                 } finally {
-                    isNetworkBusy = false;
+                    isProcessingFrame = false;
                 }
-            }
+            }, 'image/jpeg', 0.5);
+        }, 200);
 
-            if (thisSession === cameraSessionId) {
-                frameLoopTimeout = setTimeout(sendNextFrame, 600);
-            }
-        };
-
-        sendNextFrame();
         nextSimonDicePoseRound();
 
     } catch (err) {
-        if (thisSession !== cameraSessionId) return;
-        console.error('Error al acceder a la cámara:', err);
-        stopWebcamStream();
-        alert('No se pudo iniciar la cámara. Verificá los permisos y volvé a intentar.');
+        console.error("Error al acceder a la cámara webcam:", err);
+        alert("No se pudo acceder a la webcam. Por favor verifica los permisos.");
         showScreen('main-menu');
     }
 }
 
 function stopWebcamStream() {
-    cameraSessionId++;
-
-    if (frameLoopTimeout) {
-        clearTimeout(frameLoopTimeout);
-        frameLoopTimeout = null;
-    }
-    if (frameRequestController) {
-        frameRequestController.abort();
-        frameRequestController = null;
+    if (frameSendInterval) {
+        clearInterval(frameSendInterval);
+        frameSendInterval = null;
     }
     if (diceCheckInterval) {
         clearInterval(diceCheckInterval);
         diceCheckInterval = null;
     }
     clearTimeout(diceRoundTimeout);
-
-    const videoElement = document.getElementById('webcam-feed');
-    if (videoElement) {
-        videoElement.pause();
-        videoElement.srcObject = null;
-    }
+    isProcessingFrame = false;
     if (webcamStream) {
         webcamStream.getTracks().forEach(track => track.stop());
         webcamStream = null;
@@ -959,7 +903,7 @@ function nextSimonDicePoseRound() {
 
         const secondsLeft = Math.ceil((timeLimit * 150) / 1000);
         document.getElementById('dice-feedback-text').innerText =
-            `Ronda ${diceRoundCount} (${secondsLeft}s) | 🎯 Objetivo: ${currentTargetPose.emoji} | Detectado: ${currentDetectedPoseKey}`;
+            `Ronda ${diceRoundCount} (${secondsLeft}s) | Aciertos: ${scoreCorrect} | Errores: ${scoreIncorrect}/3 — ${currentTargetPose.emoji} (Detectado: ${currentDetectedPoseKey})`;
 
         if (isSimonCommand) {
             if (currentDetectedPoseKey === currentTargetPose.key) {
