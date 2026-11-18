@@ -783,6 +783,11 @@ async function startSimonDiceGame() {
     const videoElement = document.getElementById('webcam-feed');
 
     try {
+        // Validación de robustez: comprobar si MediaPipe se cargó correctamente
+        if (typeof Pose === 'undefined') {
+            throw new Error("La librería MediaPipe Pose no se ha cargado correctamente en el navegador.");
+        }
+
         if (!poseDetector) {
             poseDetector = new Pose({
                 locateFile: (file) => "https://unpkg.com" + "@mediapipe/pose/" + file
@@ -843,7 +848,7 @@ async function startSimonDiceGame() {
 
     } catch (err) {
         console.error("Error al iniciar cámara o MediaPipe:", err);
-        alert("No se pudo acceder a la webcam. Por favor verifica los permisos.");
+        alert("No se pudo inicializar MediaPipe o la webcam. Verifica tu conexión a internet para cargar las librerías externas.");
         showScreen('main-menu');
     }
 }
