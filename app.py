@@ -1,6 +1,11 @@
 import os
 from flask import Flask, jsonify, render_template, request
 
+# Trabajo Practico Integrador Python - Laboratorio de Computacion II
+# Autores: Martina Rodriguez Arona y Katherine Nazario.
+# Profesora: Monica Hencek.
+# Fecha de entrega: 18/11/2026.
+
 app = Flask(__name__)
 
 @app.after_request
