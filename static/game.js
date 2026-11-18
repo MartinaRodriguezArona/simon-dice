@@ -717,12 +717,12 @@ function finishHardPhaseTwo(completed = true) {
     const desc = completed
         ? `DOUBLE CHALLENGE: ${hardStageOnePoints} pts\nCHALLENGE EXTREME: ${hardStageTwoScore} pts\nBonus tiempo: +${bonus} pts\nTotal: ${total} pts`
         : `No completaste las 8 rondas.\nPuntaje total obtenido: ${total} pts`;
-    showRecordOutcome('Nivel 3', total, prev, desc, () => showScreen('simon-submenu'));
+    showRecordOutcome('Nivel 3', total, prev, desc, () => showScreen('simon-submenu'), completed);
 }
 
 /* --- FINALES Y RÉCORDS --- */
 function showRecordOutcome(title, score, prevRecord, details, onContinue) {
-    const isNew = score > prevRecord;
+   const isNew = score > prevRecord;
     const isTie = prevRecord > 0 && score === prevRecord;
     const modeKey = selectedMode === 'intermediate' ? 'intermediate_level_2' : 'hard_level_3';
 
@@ -735,9 +735,12 @@ function showRecordOutcome(title, score, prevRecord, details, onContinue) {
         }).catch(() => {});
     }
 
+    // Determina el tipo de pantalla: nuevo récord, victoria o game over
+    const screenType = isNew ? 'new_record' : (isVictory ? 'victory' : 'game_over');
+
     showResultScreen(
-        isNew ? 'new_record' : 'game_over',
-        isNew ? `¡${title}: NUEVO RÉCORD!` : isTie ? `${title}: ¡Igualaste tu récord!` : `${title}: Partida finalizada`,
+        screenType,
+        isNew ? `¡${title}: NUEVO RÉCORD!` : isTie ? `${title}: ¡Igualaste tu récord!` : isVictory ? `¡${title}: Completado!` : `${title}: Partida finalizada`,
         details,
         onContinue
     );
