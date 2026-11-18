@@ -10,19 +10,19 @@
 <body>
     <div class="main-wrapper">
         <!-- Botón Menú Hamburguesa (Las tres barritas con Tooltip) -->
-        <button id="btn-hamburger" class="hamburger-btn hidden" onclick="toggleGlobalMenu()">
+        <button id="btn-hamburger" class="hamburger-btn hidden" onclick="alternarMenuGlobal()">
             &#9776;
             <div id="hamburger-dropdown" class="hamburger-dropdown hidden">
-                <div class="menu-action-item" onclick="toggleMuteSound(event)">
+                <div class="menu-action-item" onclick="alternarSilenciarSonido(event)">
                     🔊 <span class="tooltip-text" id="tooltip-mute">Mutear Sonido</span>
                 </div>
-                <div class="menu-action-item" onclick="restartCurrentGame(event)">
+                <div class="menu-action-item" onclick="reiniciarPartidaActual(event)">
                     🔄 <span class="tooltip-text">Reiniciar Partida</span>
                 </div>
-                <div class="menu-action-item" onclick="pauseCurrentGame(event)">
+                <div class="menu-action-item" onclick="pausarPartidaActual(event)">
                     ⏸️ <span class="tooltip-text" id="tooltip-pause">Pausar Partida</span>
                 </div>
-                <div class="menu-action-item" onclick="abandonCurrentGame(event)">
+                <div class="menu-action-item" onclick="abandonarPartidaActual(event)">
                     🚪 <span class="tooltip-text">Abandonar Partida</span>
                 </div>
             </div>
@@ -38,7 +38,7 @@
             <h1>¡PONÉ A PRUEBA TUS REFLEJOS!</h1>
             <p class="menu-subtitle">Bienvenido al juego interactivo de memoria y visión corporal</p>
             <input type="text" id="username-input" class="input-neon" placeholder="Escribe tu usuario..." autocomplete="off" />
-            <button class="btn-main" onclick="saveUserAndMenu()">INGRESAR</button>
+            <button class="btn-main" onclick="guardarUsuarioYMenu()">INGRESAR</button>
         </div>
 
         <!-- 2. Menú Principal -->
@@ -51,19 +51,19 @@
             <h1 id="welcome-title">¡HOLA, JUGADOR!</h1>
             <p class="menu-subtitle">Elegí el modo de juego al que querés desafiarte.</p>
             <div class="mode-cards-container">
-                <div class="mode-card" onclick="selectMode('simon')">
+                <div class="mode-card" onclick="seleccionarModo('simon')">
                     <div class="mode-card-icon">🕹️</div>
                     <h2>SIMÓN</h2>
                     <p class="description">Secuencias de luces y sonidos en 3 niveles.</p>
                 </div>
-                <div class="mode-card" onclick="selectMode('simon_dice')">
+                <div class="mode-card" onclick="seleccionarModo('simon_dice')">
                     <div class="mode-card-icon">📷</div>
                     <h2>SIMÓN DICE</h2>
                     <p class="description">Reconocimiento corporal en vivo con tu webcam.</p>
                 </div>
             </div>
             <div class="menu-extras">
-                <button class="btn-sub secondary" onclick="document.getElementById('settings-overlay').classList.remove('hidden'); updateSettingsLabels()">⚙️ Configuración</button>
+                <button class="btn-sub secondary" onclick="document.getElementById('settings-overlay').classList.remove('hidden'); actualizarEtiquetasConfiguracion()">⚙️ Configuración</button>
             </div>
         </div>
 
@@ -72,23 +72,23 @@
             <p class="menu-eyebrow">ELEGÍ TU DESAFÍO</p>
             <h2>Modo Simón</h2>
             <div class="level-grid">
-                <button class="level-card level-easy" onclick="promptLevelRules('easy')">
+                <button class="level-card level-easy" onclick="mostrarReglasNivel('easy')">
                     <span class="level-art"><img src="{{ url_for('static', filename='images/modern/level_complete.jpg.png') }}" alt="Nivel 1"></span>
                     <span class="level-tag">NIVEL 01 · INICIAL</span><strong>Fácil</strong>
                     <span class="level-cta">JUGAR NIVEL <b>↗</b></span>
                 </button>
-                <button class="level-card level-mid" onclick="promptLevelRules('intermediate')">
+                <button class="level-card level-mid" onclick="mostrarReglasNivel('intermediate')">
                     <span class="level-art"><img src="{{ url_for('static', filename='images/modern/new_record.jpg.png') }}" alt="Nivel 2"></span>
                     <span class="level-tag">NIVEL 02 · DESAFÍO</span><strong>Intermedio</strong>
                     <span class="level-cta">JUGAR NIVEL <b>↗</b></span>
                 </button>
-                <button class="level-card level-hard" onclick="promptLevelRules('hard')">
+                <button class="level-card level-hard" onclick="mostrarReglasNivel('hard')">
                     <span class="level-art"><img src="{{ url_for('static', filename='images/modern/phase_completed.jpg.png') }}" alt="Nivel 3"></span>
                     <span class="level-tag">NIVEL 03 · EXPERTO</span><strong>Difícil</strong>
                     <span class="level-cta">JUGAR NIVEL <b>↗</b></span>
                 </button>
             </div>
-            <button class="btn-back" onclick="showScreen('main-menu')">Volver al Menú Principal</button>
+            <button class="btn-back" onclick="mostrarPantalla('main-menu')">Volver al Menú Principal</button>
         </div>
 
         <!-- 4. Pantalla de Juego: Modo Simón -->
@@ -111,10 +111,10 @@
             </section>
 
             <div class="simon-board">
-                <div class="color-pad pad-green" id="pad-0" onclick="handlePadClick(0)"></div>
-                <div class="color-pad pad-red" id="pad-1" onclick="handlePadClick(1)"></div>
-                <div class="color-pad pad-yellow" id="pad-2" onclick="handlePadClick(2)"></div>
-                <div class="color-pad pad-blue" id="pad-3" onclick="handlePadClick(3)"></div>
+                <div class="color-pad pad-green" id="pad-0" onclick="manejarClicPanel(0)"></div>
+                <div class="color-pad pad-red" id="pad-1" onclick="manejarClicPanel(1)"></div>
+                <div class="color-pad pad-yellow" id="pad-2" onclick="manejarClicPanel(2)"></div>
+                <div class="color-pad pad-blue" id="pad-3" onclick="manejarClicPanel(3)"></div>
             </div>
         </div>
     </div>
@@ -125,8 +125,8 @@
             <p class="panel-kicker">CÓMO SE JUEGA</p>
             <h2 id="modal-rules-title">REGLAS DEL NIVEL</h2>
             <p id="modal-rules-desc" class="rules-text-body">Descripción de reglas...</p>
-            <button class="btn-main" onclick="startConfirmedSimonLevel()">EMPEZAR JUEGO</button>
-            <button class="btn-back" onclick="closePanel('modal-level-rules')">Cancelar</button>
+            <button class="btn-main" onclick="iniciarNivelSimonConfirmado()">EMPEZAR JUEGO</button>
+            <button class="btn-back" onclick="cerrarPanel('modal-level-rules')">Cancelar</button>
         </section>
     </div>
 
@@ -134,10 +134,10 @@
     <div id="settings-overlay" class="panel-overlay hidden" role="dialog" aria-modal="true">
         <section class="simple-panel">
             <p class="panel-kicker">PERSONALIZÁ TU PARTIDA</p><h2>Configuración</h2>
-            <button id="music-setting" class="btn-sub" onclick="toggleSetting('music')">Música: Activada</button>
-            <button id="effects-setting" class="btn-sub" onclick="toggleSetting('effects')">Efectos: Activados</button>
-            <button id="voice-setting" class="btn-sub" onclick="toggleSetting('voice')">Voz: Activada</button>
-            <button class="btn-back" onclick="closePanel('settings-overlay')">Volver</button>
+            <button id="music-setting" class="btn-sub" onclick="alternarConfiguracion('music')">Música: Activada</button>
+            <button id="effects-setting" class="btn-sub" onclick="alternarConfiguracion('effects')">Efectos: Activados</button>
+            <button id="voice-setting" class="btn-sub" onclick="alternarConfiguracion('voice')">Voz: Activada</button>
+            <button class="btn-back" onclick="cerrarPanel('settings-overlay')">Volver</button>
         </section>
     </div>
 
@@ -150,7 +150,7 @@
                 <h2 id="result-title">Resultado</h2>
                 <p id="result-description"></p>
                 <div id="record-comparison" class="record-comparison hidden" aria-live="polite"></div>
-                <button id="result-continue" class="btn-main" onclick="continueResult()">Continuar</button>
+                <button id="result-continue" class="btn-main" onclick="continuarResultado()">Continuar</button>
             </div>
         </div>
     </div>
@@ -165,15 +165,6 @@
     </div>
 
     <!-- 6. Pantalla Simón Dice: Cámara en Pantalla Completa -->
-    <div id="simon-dice-screen" class="screen hidden">
-        <video id="webcam-feed" class="webcam-fullscreen" autoplay playsinline muted></video>
-        <div id="dice-target-emoji" class="emoji-banner">⏳</div>
-        <div class="dice-overlay-status">
-            <span id="dice-feedback-text">Analizando postura corporal...</span>
-        </div>
-    </div>
-
-    <!-- 5. Pantalla Simón Dice: Cámara en Pantalla Completa -->
     <div id="simon-dice-screen" class="screen hidden">
         <video id="webcam-feed" class="webcam-fullscreen" autoplay playsinline muted></video>
         <div id="dice-target-emoji" class="emoji-banner">⏳</div>
