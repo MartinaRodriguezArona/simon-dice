@@ -832,26 +832,35 @@ async function startSimonDiceGame() {
             });
         }
 
-        if (mpCamera) {
+       if (mpCamera) {
             await mpCamera.stop();
         }
 
-        // Bandera local para evitar enviar fotogramas concurrentes a WebAssembly
         let isSendingFrame = false;
 
         mpCamera = new Camera(videoElement, {
             onFrame: async () => {
                 // Si el juego está pausado, no hay detector, o ya se está procesando un cuadro, omitir
                 if (isPaused || !poseDetector || isSendingFrame) return;
-                
+
+                // VALIDACIÓN CRÍTICA DE SEGURIDAD PARA EVITAR MEMORY OUT OF BOUNDS:
+                // Asegurar que el video tenga metadatos listos, dimensiones válidas y datos reproducibles
+                if (
+                    videoElement.readyState < 2 || 
+                    videoElement.videoWidth === 0 || 
+                    videoElement.videoHeight === 0 ||
+                    videoElement.paused ||
+                    videoElement.ended
+                ) {
+                    return;
+                }
+
                 isSendingFrame = true;
                 try {
                     await poseDetector.send({ image: videoElement });
                 } catch (e) {
-                    // Capturar cualquier desajuste menor de timestamp sin tumbar el hilo de ejecución
-                    console.warn("Advertencia en el flujo de video de MediaPipe:", e);
+                    console.warn("Advertencia controlada en el flujo de video de MediaPipe:", e);
                 } finally {
-                    // Liberar el semáforo para el siguiente frame
                     isSendingFrame = false;
                 }
             },
@@ -861,13 +870,6 @@ async function startSimonDiceGame() {
 
         await mpCamera.start();
         nextSimonDicePoseRound();
-
-    } catch (err) {
-        console.error("Error al iniciar cámara o MediaPipe:", err);
-        alert("No se pudo inicializar MediaPipe o la webcam. Verifica tu conexión a internet para cargar las librerías externas.");
-        showScreen('main-menu');
-    }
-}
 
 function stopWebcamStream() {
     if (frameSendInterval) {
