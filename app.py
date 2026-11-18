@@ -1,23 +1,8 @@
-import gc
 import os
-import threading
-import cv2
-import numpy as np
 from flask import Flask, jsonify, render_template, request
-import mediapipe as mp
 
 app = Flask(__name__)
 
-mp_pose = mp.solutions.pose
-detector_postura = mp_pose.Pose(
-    static_image_mode=False,
-    model_complexity=0,
-    smooth_landmarks=False,
-    min_detection_confidence=0.35,
-    min_tracking_confidence=0.35,
-)
-
-media_pipe_lock = threading.Lock()
 ultima_postura_detectada = "NEUTRAL"
 game_records = {"intermediate_level_2": 0, "hard_level_3": 0}
 
@@ -32,62 +17,41 @@ def favicon():
     return "", 204
 
 
-@app.route("/api/process_frame", methods=["POST"])
-def procesar_fotograma():
+@app.route("/api/classify_landmarks", methods=["POST"])
+def clasificar_postura():
     global ultima_postura_detectada
-    if "frame" not in request.files:
-        return jsonify({"detected": "NEUTRAL", "status": "no_file"}), 400
+    data = request.get_json(silent=True) or {}
+    puntos = data.get("landmarks")
+
+    if not puntos or len(puntos) < 29:
+        return jsonify({"detected": "NEUTRAL", "status": "no_landmarks"})
 
     try:
-        archivo = request.files["frame"]
-        bytes_img = np.frombuffer(archivo.read(), np.uint8)
-        fotograma = cv2.imdecode(bytes_img, cv2.IMREAD_COLOR)
-
-        if fotograma is None:
-            return jsonify({"detected": "NEUTRAL", "status": "bad_frame"}), 400
-
-        alto, ancho = fotograma.shape[:2]
-        nuevo_ancho = 192
-        nuevo_alto = int(alto * (nuevo_ancho / ancho))
-        fotograma = cv2.resize(fotograma, (nuevo_ancho, nuevo_alto), interpolation=cv2.INTER_LINEAR)
-        rgb = cv2.cvtColor(fotograma, cv2.COLOR_BGR2RGB)
-
-        with media_pipe_lock:
-            resultados = detector_postura.process(rgb)
-
-        del bytes_img, fotograma, rgb
-
-        if not resultados.pose_landmarks:
-            gc.collect()
-            return jsonify({"detected": "NEUTRAL", "status": "cuerpo_no_detectado"})
-
-        puntos = resultados.pose_landmarks.landmark
-        m_izq = puntos[mp_pose.PoseLandmark.LEFT_WRIST]
-        m_der = puntos[mp_pose.PoseLandmark.RIGHT_WRIST]
-        d_izq = puntos[mp_pose.PoseLandmark.LEFT_INDEX]
-        d_der = puntos[mp_pose.PoseLandmark.RIGHT_INDEX]
-        o_izq = puntos[mp_pose.PoseLandmark.LEFT_EAR]
-        o_der = puntos[mp_pose.PoseLandmark.RIGHT_EAR]
-        h_izq = puntos[mp_pose.PoseLandmark.LEFT_SHOULDER]
-        h_der = puntos[mp_pose.PoseLandmark.RIGHT_SHOULDER]
-        t_izq = puntos[mp_pose.PoseLandmark.LEFT_ANKLE]
-        t_der = puntos[mp_pose.PoseLandmark.RIGHT_ANKLE]
-        nariz = puntos[mp_pose.PoseLandmark.NOSE]
+        nariz = puntos[0]
+        o_izq = puntos[7]
+        h_izq = puntos[11]
+        h_der = puntos[12]
+        m_izq = puntos[15]
+        m_der = puntos[16]
+        d_izq = puntos[19]
+        d_der = puntos[20]
+        t_izq = puntos[27]
+        t_der = puntos[28]
 
         tocar_nariz = (
-            (abs(d_izq.x - nariz.x) < 0.4 and abs(d_izq.y - nariz.y) < 0.4)
-            or (abs(d_der.x - nariz.x) < 0.4 and abs(d_der.y - nariz.y) < 0.4)
-            or (abs(m_izq.x - nariz.x) < 0.45 and abs(m_izq.y - nariz.y) < 0.45)
-            or (abs(m_der.x - nariz.x) < 0.45 and abs(m_der.y - nariz.y) < 0.45)
+            (abs(d_izq["x"] - nariz["x"]) < 0.4 and abs(d_izq["y"] - nariz["y"]) < 0.4)
+            or (abs(d_der["x"] - nariz["x"]) < 0.4 and abs(d_der["y"] - nariz["y"]) < 0.4)
+            or (abs(m_izq["x"] - nariz["x"]) < 0.45 and abs(m_izq["y"] - nariz["y"]) < 0.45)
+            or (abs(m_der["x"] - nariz["x"]) < 0.45 and abs(m_der["y"] - nariz["y"]) < 0.45)
         )
 
-        manos_cabeza = (m_izq.y < h_izq.y) and (m_der.y < h_der.y) and (abs(m_izq.x - o_izq.x) < 0.4)
-        am_arriba = (m_izq.y < h_izq.y) and (m_der.y < h_der.y)
-        brazos_cruz = abs(m_izq.x - m_der.x) < 0.25 and abs(m_izq.y - h_izq.y) < 0.35
-        m_izq_arriba = (m_izq.y < h_izq.y) and not (m_der.y < h_der.y)
-        m_der_arriba = (m_der.y < h_der.y) and not (m_izq.y < h_izq.y)
-        pie_izq_arriba = (t_der.y - t_izq.y) > 0.08
-        pie_der_arriba = (t_izq.y - t_der.y) > 0.08
+        manos_cabeza = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"]) and (abs(m_izq["x"] - o_izq["x"]) < 0.4)
+        am_arriba = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"])
+        brazos_cruz = abs(m_izq["x"] - m_der["x"]) < 0.25 and abs(m_izq["y"] - h_izq["y"]) < 0.35
+        m_izq_arriba = (m_izq["y"] < h_izq["y"]) and not (m_der["y"] < h_der["y"])
+        m_der_arriba = (m_der["y"] < h_der["y"]) and not (m_izq["y"] < h_izq["y"])
+        pie_izq_arriba = (t_der["y"] - t_izq["y"]) > 0.08
+        pie_der_arriba = (t_izq["y"] - t_der["y"]) > 0.08
 
         if manos_cabeza:
             ultima_postura_detectada = "🙆"
@@ -108,11 +72,10 @@ def procesar_fotograma():
         else:
             ultima_postura_detectada = "NEUTRAL"
 
-        gc.collect()
         return jsonify({"detected": ultima_postura_detectada, "status": "ok"})
 
     except Exception as e:
-        print(f"Error en procesar_fotograma: {e}")
+        print(f"Error en clasificar_postura: {e}")
         return jsonify({"detected": "NEUTRAL", "status": "error", "message": str(e)}), 500
 
 
