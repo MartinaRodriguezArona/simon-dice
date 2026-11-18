@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 @app.after_request
 def add_security_headers(response):
-    # Permite explícitamente el uso de la cámara en el navegador del cliente
+    # Permite explícitamente el uso de la cámara en el navegador del cliente[cite: 7]
     response.headers['Permissions-Policy'] = 'camera=(self)'
     return response
 
@@ -54,24 +54,25 @@ def clasificar_postura():
         manos_cabeza = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"]) and (abs(m_izq["x"] - o_izq["x"]) < 0.4)
         am_arriba = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"])
         brazos_cruz = abs(m_izq["x"] - m_der["x"]) < 0.25 and abs(m_izq["y"] - h_izq["y"]) < 0.35
-        # Permitimos un pequeño margen de flexibilidad para que no falle si el otro brazo se mueve un poco
-        m_der_arriba = (m_der["y"] < h_der["y"]) and (m_izq["y"] > h_izq["y"] - 0.05)
-        m_izq_arriba = (m_izq["y"] < h_izq["y"]) and (m_der["y"] > h_der["y"] - 0.05)
+        
+        # Umbral con tolerancia añadida para evitar falsos bloqueos al levantar un brazo
+        m_izq_arriba = m_izq["y"] < (h_izq["y"] - 0.05)
+        m_der_arriba = m_der["y"] < (h_der["y"] - 0.05)
+        
         pie_izq_arriba = (t_der["y"] - t_izq["y"]) > 0.08
         pie_der_arriba = (t_izq["y"] - t_der["y"]) > 0.08
 
-        # Cambiá el orden en Python para que evalúe primero el gesto general de manos arriba
-        if am_arriba:
-            ultima_postura_detectada = "🙌"
-        elif manos_cabeza:
+        if manos_cabeza:
             ultima_postura_detectada = "🙆"
         elif tocar_nariz:
             ultima_postura_detectada = "👉👃"
+        elif am_arriba:
+            ultima_postura_detectada = "🙌"
         elif brazos_cruz:
             ultima_postura_detectada = "🙅‍♀️"
-        elif m_der_arriba:
+        elif m_der_arriba and not m_izq_arriba:
             ultima_postura_detectada = "🙋‍♀️"
-        elif m_izq_arriba:
+        elif m_izq_arriba and not m_der_arriba:
             ultima_postura_detectada = "🙋‍♂️"
         elif pie_izq_arriba:
             ultima_postura_detectada = "🦵⬅️"
