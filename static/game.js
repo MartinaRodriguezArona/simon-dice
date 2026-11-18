@@ -53,7 +53,7 @@ const POSES_DICT = [
     { emoji: '🙋‍♀️', name: 'Mano Derecha Arriba', key: '🙋‍♀️' },
     { emoji: '🙋‍♂️', name: 'Mano Izquierda Arriba', key: '🙋‍♂️' },
     { emoji: '👉👃', name: 'Tocar la Nariz', key: '👉👃' },
-    { emoji: '🙆', name: 'Manos a la Cabeza', key: '🙆' },
+    { emoji: '🙉', name: 'Manos en los Oídos', key: '🙉' },
     { emoji: '🙅‍♀️', name: 'Brazos en Cruz', key: '🙅‍♀️' },
     { emoji: '🦵⬅️', name: 'Pie Izquierdo Arriba', key: '🦵⬅️' },
     { emoji: '🦵➡️', name: 'Pie Derecho Arriba', key: '🦵➡️' }
