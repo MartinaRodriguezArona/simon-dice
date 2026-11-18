@@ -68,10 +68,10 @@ def clasificar_postura():
             ultima_postura_detectada = "🙋‍♀️"
         elif m_izq_arriba and not m_der_arriba:
             ultima_postura_detectada = "🙋‍♂️"
-        elif manos_cabeza:
-            ultima_postura_detectada = "🙆"
         elif tocar_nariz:
             ultima_postura_detectada = "👉👃"
+        elif manos_cabeza:
+            ultima_postura_detectada = "🙆"
         elif brazos_cruz:
             ultima_postura_detectada = "🙅‍♀️"
         elif pie_izq_arriba:
