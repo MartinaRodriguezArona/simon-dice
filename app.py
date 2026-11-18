@@ -62,12 +62,12 @@ def clasificar_postura():
         pie_izq_arriba = (t_der["y"] - t_izq["y"]) > 0.08
         pie_der_arriba = (t_izq["y"] - t_der["y"]) > 0.08
 
-        if manos_cabeza:
-            ultima_postura_detectada = "🙆"
+        if am_arriba:
+            ultima_postura_detectada = "🙌" 
         elif tocar_nariz:
             ultima_postura_detectada = "👉👃"
-        elif am_arriba:
-            ultima_postura_detectada = "🙌"
+        elif manos_cabeza:
+            ultima_postura_detectada = "🙆"
         elif brazos_cruz:
             ultima_postura_detectada = "🙅‍♀️"
         elif m_der_arriba and not m_izq_arriba:
