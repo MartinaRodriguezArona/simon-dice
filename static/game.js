@@ -721,8 +721,8 @@ function finishHardPhaseTwo(completed = true) {
 }
 
 /* --- FINALES Y RÉCORDS --- */
-function showRecordOutcome(title, score, prevRecord, details, onContinue) {
-   const isNew = score > prevRecord;
+function showRecordOutcome(title, score, prevRecord, details, onContinue, isVictory = false) {
+    const isNew = score > prevRecord;
     const isTie = prevRecord > 0 && score === prevRecord;
     const modeKey = selectedMode === 'intermediate' ? 'intermediate_level_2' : 'hard_level_3';
 
@@ -735,26 +735,28 @@ function showRecordOutcome(title, score, prevRecord, details, onContinue) {
         }).catch(() => {});
     }
 
-    // Determina el tipo de pantalla: nuevo récord, victoria o game over
+    // Si es Nivel 2 y quieres que siempre suene victoria al hacer puntos, cambia la línea de abajo por:
+    // const won = isVictory || (selectedMode === 'intermediate' && score > 0);
     const screenType = isNew ? 'new_record' : (isVictory ? 'victory' : 'game_over');
+    const screenTitle = isNew
+        ? `¡${title}: NUEVO RÉCORD!`
+        : isTie
+            ? `${title}: ¡Igualaste tu récord!`
+            : isVictory
+                ? `¡${title}: Completado!`
+                : `${title}: Partida finalizada`;
 
-    showResultScreen(
-        screenType,
-        isNew ? `¡${title}: NUEVO RÉCORD!` : isTie ? `${title}: ¡Igualaste tu récord!` : isVictory ? `¡${title}: Completado!` : `${title}: Partida finalizada`,
-        details,
-        onContinue
-    );
+    showResultScreen(screenType, screenTitle, details, onContinue);
 
     const comp = document.getElementById('record-comparison');
     if (comp) {
         comp.innerHTML = `
             <div class="record-stat"><span>RÉCORD ANTERIOR</span><strong>${prevRecord}</strong></div>
             <div class="record-stat record-current"><span>TU PARTIDA</span><strong>${score}</strong></div>
-            <div class="record-status ${isNew ? 'is-new' : ''}">${isNew ? '🏆 ¡NUEVO RÉCORD!' : isTie ? '✨ ¡EMPATE!' : '💪 ¡SEGUÍ INTENTANDO!'}</div>`;
+            <div class="record-status ${isNew ? 'is-new' : ''}">${isNew ? '🏆 ¡NUEVO RÉCORD!' : isTie ? '✨ ¡EMPATE!' : isVictory ? '🎉 ¡NIVEL SUPERADO!' : '💪 ¡SEGUÍ INTENTANDO!'}</div>`;
         comp.classList.remove('hidden');
     }
 }
-
 function finishEasyLevel() {
     clearAllSimonTimers();
     showResultScreen('victory', '¡Nivel 1 Completado!', `¡Completaste las 10 secuencias!\nAciertos: ${scoreCorrect} | Errores: ${scoreIncorrect}`, () => showScreen('simon-submenu'));
