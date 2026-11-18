@@ -27,7 +27,7 @@ game_records = {"intermediate_level_2": 0, "hard_level_3": 0}
 def inicio():
     return render_template("index.html")
 
-@app.route("/api/process_frame", methods=["POST"])
+@app.route('/api/process_frame', methods=['POST'])
 def procesar_fotograma():
     global ultima_postura_detectada
     if "frame" not in request.files:
