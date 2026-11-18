@@ -166,8 +166,8 @@
 
     <!-- Audio de Fondo -->
     <audio id="bg-music" src="{{ url_for('static', filename='sounds/background_music.wav') }}" loop preload="auto"></audio>
-    <script src="https://unpkg.com" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com" crossorigin="anonymous"></script>
+    <script src="{{ url_for('static', filename='mediapipe/pose.js') }}"></script>
+    <script src="{{ url_for('static', filename='mediapipe/camera_utils.js') }}"></script>
     <script src="{{ url_for('static', filename='game.js') }}"></script>
 
 </body>
