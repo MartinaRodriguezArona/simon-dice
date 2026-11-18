@@ -264,7 +264,8 @@ function selectMode(mode) {
     if (mode === 'simon') {
         showScreen('simon-submenu');
     } else if (mode === 'simon_dice') {
-        promptLevelRules('simon_dice');
+        // En lugar de startSimonDiceGame directamente, iniciamos el proceso de calibración
+        startCalibrationProcess();
     }
 }
 
@@ -989,4 +990,185 @@ function nextSimonDicePoseRound() {
             }
         }
     }, 150);
+}
+
+/* ==========================================================================
+   FASE DE CALIBRACIÓN Y TUTORIAL PREVIO (SOFTWARE ENGINEERING)
+   ========================================================================== */
+let calibrationDetector = null;
+let calibrationCamera = null;
+let calibrationStep = 'position_check'; // 'position_check' -> 'tutorial' -> 'ready'
+let tutorialPoseIndex = 0;
+let consecutiveFramesMatched = 0;
+
+async function startCalibrationProcess() {
+    clearAllSimonTimers();
+    selectedMode = 'simon_dice_calibration';
+    isPaused = false;
+    showScreen('calibration-screen');
+
+    const videoElement = document.getElementById('calibration-video');
+    const statusText = document.getElementById('calibration-status-text');
+    const emojiBanner = document.getElementById('calibration-target-emoji');
+
+    calibrationStep = 'position_check';
+    tutorialPoseIndex = 0;
+    consecutiveFramesMatched = 0;
+    emojiBanner.innerText = "📏";
+
+    try {
+        if (typeof Pose === 'undefined') {
+            throw new Error("MediaPipe no se cargó correctamente.");
+        }
+
+        if (!calibrationDetector) {
+            calibrationDetector = new Pose({
+                locateFile: (file) => `https://unpkg.com/@mediapipe/pose/${file}`
+            });
+            calibrationDetector.setOptions({
+                modelComplexity: 0,
+                smoothLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            const offscreenCanvas = document.createElement('canvas');
+            const offscreenCtx = offscreenCanvas.getContext('2d');
+            let isSendingCalibFrame = false;
+
+            calibrationDetector.onResults(async (results) => {
+                if (isSendingCalibFrame) return;
+                isSendingCalibFrame = true;
+
+                try {
+                    if (!results.poseLandmarks) {
+                        statusText.innerText = "❌ No te veo frente a la cámara. ¡Acercate!";
+                        return;
+                    }
+
+                    const landmarks = results.poseLandmarks;
+                    const nose = landmarks[0];
+                    const leftShoulder = landmarks[11];
+                    const rightShoulder = landmarks[12];
+
+                    if (calibrationStep === 'position_check') {
+                        // 1. Validar centrado horizontal (Eje X de la nariz entre 0.3 y 0.7)
+                        if (nose.x < 0.3) {
+                            statusText.innerText = "➡️ Movete un poco hacia tu DERECHA";
+                            return;
+                        }
+                        if (nose.x > 0.7) {
+                            statusText.innerText = "⬅️ Movete un poco hacia tu IZQUIERDA";
+                            return;
+                        }
+
+                        // 2. Validar distancia con la distancia de los hombros
+                        const shoulderDist = Math.abs(leftShoulder.x - rightShoulder.x);
+                        if (shoulderDist < 0.12) {
+                            statusText.innerText = "🔍 Estás muy lejos. ¡Acercate más a la cámara!";
+                            return;
+                        }
+                        if (shoulderDist > 0.65) {
+                            statusText.innerText = "⚠️ Estás muy cerca. ¡Alejate un poco!";
+                            return;
+                        }
+
+                        // 3. Validar iluminación mediante análisis de canvas
+                        if (videoElement.readyState >= 2) {
+                            if (offscreenCanvas.width !== videoElement.videoWidth) {
+                                offscreenCanvas.width = videoElement.videoWidth;
+                                offscreenCanvas.height = videoElement.videoHeight;
+                            }
+                            offscreenCtx.drawImage(videoElement, 0, 0);
+                            const imgData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+                            let brightness = 0;
+                            for (let i = 0; i < imgData.data.length; i += 32) {
+                                brightness += (imgData.data[i] * 0.299 + imgData.data[i+1] * 0.587 + imgData.data[i+2] * 0.114);
+                            }
+                            const avgBrightness = brightness / (imgData.data.length / 32);
+                            
+                            if (avgBrightness < 35) {
+                                statusText.innerText = "💡 Muy poca luz. ¡Prendé una luz o busquemos más claridad!";
+                                return;
+                            }
+                        }
+
+                        // ¡Todo perfecto! Pasamos al tutorial interactivo de poses
+                        calibrationStep = 'tutorial';
+                        speakSimonInstruction("Calibración exitosa. Ahora practicaremos las poses.");
+
+                    } else if (calibrationStep === 'tutorial') {
+                        const targetPose = POSES_DICT[tutorialPoseIndex];
+                        emojiBanner.innerText = targetPose.emoji;
+                        statusText.innerText = `Tutorial (${tutorialPoseIndex + 1}/${POSES_DICT.length}): Hacé la pose -> ${targetPose.name}`;
+
+                        // Clasificar temporalmente con la misma API de Flask para comprobar la pose
+                        const simplifiedLandmarks = landmarks.map(p => ({ x: p.x, y: p.y }));
+                        const response = await fetch('/api/classify_landmarks', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ landmarks: simplifiedLandmarks })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.detected === targetPose.key) {
+                                consecutiveFramesMatched++;
+                                // Exigir mantener la pose 4 fotogramas estables para validarla
+                                if (consecutiveFramesMatched >= 4) {
+                                    consecutiveFramesMatched = 0;
+                                    tutorialPoseIndex++;
+                                    playFeedbackSound(true);
+                                    
+                                    if (tutorialPoseIndex >= POSES_DICT.length) {
+                                        // ¡Fin del tutorial! Detenemos la cámara de calibración y arrancamos el juego
+                                        stopCalibrationCamera();
+                                        startSimonDiceGame();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error en calibración:", e);
+                } finally {
+                    isSendingCalibFrame = false;
+                }
+            });
+        }
+
+        if (calibrationCamera) {
+            await calibrationCamera.stop();
+        }
+
+        let isSendingCalib = false;
+        calibrationCamera = new Camera(videoElement, {
+            onFrame: async () => {
+                if (!calibrationDetector || isSendingCalib) return;
+                if (videoElement.readyState < 2) return;
+                isSendingCalib = true;
+                try {
+                    await calibrationDetector.send({ image: videoElement });
+                } catch (e) {} finally {
+                    isSendingCalib = false;
+                }
+            },
+            width: 640,
+            height: 480
+        });
+
+        await calibrationCamera.start();
+
+    } catch (err) {
+        console.error("Error al iniciar la calibración:", err);
+        alert("No se pudo iniciar la cámara para la calibración.");
+        showScreen('main-menu');
+    }
+}
+
+function stopCalibrationCamera() {
+    if (calibrationCamera) {
+        calibrationCamera.stop().catch(() => {});
+        calibrationCamera = null;
+    }
 }
