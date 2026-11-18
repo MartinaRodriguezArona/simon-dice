@@ -4,12 +4,12 @@ from flask import Flask, jsonify, render_template, request
 app = Flask(__name__)
 
 @app.after_request
-def add_security_headers(response):
-    response.headers['Permissions-Policy'] = 'camera=(self)'
-    return response
+def agregar_encabezados_seguridad(respuesta):
+    respuesta.headers['Permissions-Policy'] = 'camera=(self)'
+    return respuesta
 
 ultima_postura_detectada = "NEUTRAL"
-game_records = {"intermediate_level_2": 0, "hard_level_3": 0}
+registros_juego = {"intermediate_level_2": 0, "hard_level_3": 0}
 
 
 @app.route("/")
@@ -25,8 +25,8 @@ def favicon():
 @app.route("/api/classify_landmarks", methods=["POST"])
 def clasificar_postura():
     global ultima_postura_detectada
-    data = request.get_json(silent=True) or {}
-    puntos = data.get("landmarks")
+    datos = request.get_json(silent=True) or {}
+    puntos = datos.get("landmarks")
 
     if not puntos or len(puntos) < 29:
         return jsonify({"detected": "NEUTRAL", "status": "no_landmarks"})
@@ -45,7 +45,7 @@ def clasificar_postura():
         t_der = puntos[28]
 
         # 1. Ambas manos arriba (🙌): ambas muñecas arriba de los hombros y por encima de la nariz
-        am_arriba = (
+        ambas_manos_arriba = (
             (m_izq["y"] < h_izq["y"] - 0.05)
             and (m_der["y"] < h_der["y"] - 0.05)
             and (m_izq["y"] < nariz["y"])
@@ -78,7 +78,7 @@ def clasificar_postura():
         pie_izq_arriba = (t_der["y"] - t_izq["y"]) > 0.05
         pie_der_arriba = (t_izq["y"] - t_der["y"]) > 0.05
 
-        if am_arriba:
+        if ambas_manos_arriba:
             ultima_postura_detectada = "🙌"
         elif m_der_arriba and not m_izq_arriba:
             ultima_postura_detectada = "🙋‍♀️"
@@ -99,26 +99,26 @@ def clasificar_postura():
 
         return jsonify({"detected": ultima_postura_detectada, "status": "ok"})
 
-    except Exception as e:
-        print(f"Error en clasificar_postura: {e}")
-        return jsonify({"detected": "NEUTRAL", "status": "error", "message": str(e)}), 500
+    except Exception as error:
+        print(f"Error en clasificar_postura: {error}")
+        return jsonify({"detected": "NEUTRAL", "status": "error", "message": str(error)}), 500
 
 
 @app.route("/api/save_record", methods=["POST"])
 def save_record():
-    data = request.get_json()
-    mode = data.get("mode")
-    score = data.get("score")
-    if score > game_records.get(mode, 0):
-        game_records[mode] = score
-    return jsonify({"saved": True, "new_record": game_records[mode]})
+    datos = request.get_json()
+    modo = datos.get("mode")
+    puntaje = datos.get("score")
+    if puntaje > registros_juego.get(modo, 0):
+        registros_juego[modo] = puntaje
+    return jsonify({"saved": True, "new_record": registros_juego[modo]})
 
 
 @app.route("/api/records", methods=["GET"])
 def get_records():
-    return jsonify(game_records)
+    return jsonify(registros_juego)
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, threaded=True)
+    puerto = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=puerto, threaded=True)
