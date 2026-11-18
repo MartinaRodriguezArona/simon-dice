@@ -40,6 +40,11 @@ def procesar_fotograma():
     if fotograma is None:
         return jsonify({"detected": "NEUTRAL", "status": "bad_frame"}), 400
 
+    alto, ancho = fotograma.shape[:2]
+    nuevo_ancho = 256
+    nuevo_alto = int(alto * (nuevo_ancho / ancho))
+    fotograma = cv2.resize(fotograma, (nuevo_ancho, nuevo_alto), interpolation=cv2.INTER_LINEAR)
+    
     rgb = cv2.cvtColor(fotograma, cv2.COLOR_BGR2RGB)
     resultados = detector_postura.process(rgb)
 
