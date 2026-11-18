@@ -167,9 +167,12 @@
     <!-- Audio de Fondo -->
     <audio id="bg-music" src="{{ url_for('static', filename='sounds/background_music.wav') }}" loop preload="auto"></audio>
     <!-- En templates/index.html -->
-    <script src="https://unpkg.com" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com" crossorigin="anonymous"></script>
+        <script>
+        document.write('<scr' + 'ipt src="https://unpkg.com' + '@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></scr' + 'ipt>');
+        document.write('<scr' + 'ipt src="https://unpkg.com' + '@mediapipe/pose/pose.js" crossorigin="anonymous"></scr' + 'ipt>');
+    </script>
     <script src="{{ url_for('static', filename='game.js') }}"></script>
+
 
 </body>
 </html>
