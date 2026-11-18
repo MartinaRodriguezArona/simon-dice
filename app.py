@@ -34,6 +34,7 @@ def clasificar_postura():
 
     try:
         nariz = puntos[0]
+        o_der = puntos[8]
         o_izq = puntos[7]
         h_izq = puntos[11]
         h_der = puntos[12]
@@ -51,9 +52,15 @@ def clasificar_postura():
             or (abs(m_der["x"] - nariz["x"]) < 0.45 and abs(m_der["y"] - nariz["y"]) < 0.45)
         )
 
-        manos_cabeza = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"]) and (abs(m_izq["x"] - o_izq["x"]) < 0.4)
-        am_arriba = (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"])
-        brazos_cruz = abs(m_izq["x"] - m_der["x"]) < 0.25 and abs(m_izq["y"] - h_izq["y"]) < 0.35
+        # Manos en la cabeza: ambas muñecas arriba de los hombros, a la altura de la cabeza (cerca de nariz/orejas en Y)
+        # y cerca del ancho de la cabeza (no totalmente abiertas como en 🙌)
+        manos_cabeza = (
+            (m_izq["y"] < h_izq["y"]) and (m_der["y"] < h_der["y"])
+            and (abs(m_izq["x"] - o_izq["x"]) < 0.25)
+            and (abs(m_der["x"] - o_der["x"]) < 0.25)
+            and (m_izq["y"] > nariz["y"] - 0.35)
+            and (m_der["y"] > nariz["y"] - 0.35)
+        )
         
         # Umbral con tolerancia añadida para evitar falsos bloqueos al levantar un brazo
         m_izq_arriba = m_izq["y"] < (h_izq["y"] - 0.05)
