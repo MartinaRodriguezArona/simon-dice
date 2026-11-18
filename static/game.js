@@ -72,7 +72,7 @@ let resultAudioSequenceId = 0;
 const resultDefinitions = {
     phase_complete: { image: 'phase_completed.jpg.png', kicker: 'FASE COMPLETADA' },
     level_complete: { image: 'level_complete.jpg.png', kicker: 'NIVEL SUPERADO' },
-    survival_unlocked: { image: 'survival_unlocked.jpg.png', sound: 'goingNext.mp3', kicker: 'NUEVO MODO' },
+    survival_unlocked: { image: 'survival_unlocked.jpg.png', sound: 'background_music.wav', kicker: 'NUEVO MODO' },
     victory: { image: 'victory.jpg.png', sounds: ['victory.mp3'], kicker: 'VICTORIA' },
     game_over: { image: 'game_over.jpg.png', sounds: ['gameOverVoice.mp3', 'gameOverSound.mp3'], kicker: 'PARTIDA FINALIZADA' },
     new_record: { image: 'new_record.jpg.png', kicker: 'NUEVO RÉCORD' }
